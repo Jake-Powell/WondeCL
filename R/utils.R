@@ -31,6 +31,13 @@ rbind_aggro <- function(list_of_data.frames){
   do.call(rbind, data_frame_format)
 }
 
+#' convert sublist element of data frame to a data frame
+#'
+#' @param data data
+#' @param column_to_unnest column_to_unnest
+#'
+#' @return
+#'
 convert_list_element_to_df <- function(data, column_to_unnest){
   for(i in 1:nrow(data)){
     val = data[[column_to_unnest]][i][[1]]
@@ -41,3 +48,22 @@ convert_list_element_to_df <- function(data, column_to_unnest){
   data
 }
 
+
+#' combine two lists element-wise
+#'
+#' @param a list
+#' @param b list
+#'
+#' @return a and b combined into one list (i,e a[[1]], a[[2]], ... a[[N]], b[[1]], b[[2]], ... b[[M]].)
+#'
+#' @examplesIf FALSE
+#' list1 = list(A=1, B=2, C=3)
+#' list2 = list(D=1, E=2, F=3)
+#' combine_raw_data(list1, list2)
+#'
+combine_raw_data <- function(a, b){
+  for(i in 1:length(b)){
+    a[[names(b)[i]]] = b[[i]]
+  }
+  return(a)
+}

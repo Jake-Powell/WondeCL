@@ -58,6 +58,20 @@ get_query <- function(url_path, filter='', KEY = ''){
 #'
 #' Primary school information is obtained using `get_primary_school_student_data()` and secondary school information from `get_secondary_school_student_data()`.
 #'
+#'
+#' @examplesIf FALSE
+#' school_id = "Enter_ID_here"
+#' KEY = "Enter_KEY_here"
+#' primary_school_ids = c('A', 'B', 'C', 'D')
+#'
+#' # Get info for individual school.
+#' primary_info = get_primary_school_student_data(school_id, KEY)
+#' secondary_info = get_secondary_school_student_data(school_id, KEY)
+#'
+#' # Loop over and extract info for all primary schools.
+#' primary_data_raw = lapply(primary_school_ids, function(id){get_primary_school_student_data(id, KEY) })
+#' names(primary_data_raw) = primary_school_ids
+#' primary_data_raw
 get_primary_school_student_data <- function(school_id, KEY = ''){
   print(school_id)
 

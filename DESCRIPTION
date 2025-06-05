@@ -1,13 +1,26 @@
-Package: WondePull
+Package: WondeCL
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Create class lists from Wonde API
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Author: Jake Powell
+Maintainer: Jake Powell <yourself@somewhere.net>
+Description: Use the Wonde API to create class lists to be used in created surveys to send to schools.
 License: AGPL (>= 3)
 Encoding: UTF-8
 LazyData: true
 Imports: 
-    httr2
+    cli,
+    dplyr,
+    httr2,
+    jsonlite,
+    logr,
+    readr,
+    readxl,
+    stringi,
+    stringr,
+    tidyr
+URL: https://github.com/Jake-Powell/WondeCL
+BugReports: https://github.com/Jake-Powell/WondeCL/issues
+RoxygenNote: 7.3.2
+Depends: 
+    R (>= 2.10)

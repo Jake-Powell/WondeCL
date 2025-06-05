@@ -1,0 +1,30 @@
+url: ~
+template:
+  bootstrap: 5
+  light-switch: yes
+
+navbar:
+  structure:
+    left: [reference, news]
+    right: [search, github, lightswitch]
+
+
+reference:
+- title: Extract data from Wonde
+  contents:
+  - get_query
+  - get_primary_school_student_data
+  - add_upi_info
+
+- title: Manual class list changes
+  contents:
+  - add_student_to_school_class
+  - create_school_blanks
+
+- title: Misc
+  contents:
+  - class_list_example
+  - convert_list_element_to_df
+  - combine_raw_data
+  - rbind_aggro
+  - apply_withdrawn
