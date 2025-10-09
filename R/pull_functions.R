@@ -21,7 +21,7 @@ get_query <- function(url_path, filter='', KEY = ''){
   while(carry_on){
     url_use = paste0(url_path, '?page=',page, filter)
 
-    req = request(url_use) |> httr2::req_auth_basic(username = KEY, password = '') |> httr2::req_perform()
+    req = httr2::request(url_use) |> httr2::req_auth_basic(username = KEY, password = '') |> httr2::req_perform()
     body = req$body |> rawToChar() |> jsonlite::prettify() |> jsonlite::fromJSON(simplifyDataFrame = T,flatten = T)
     data = body$data |> as.data.frame()
 
