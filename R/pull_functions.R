@@ -15,26 +15,60 @@
 #'  employees = get_query(url_path, filter = '&include=groups', KEY = KEY)
 #'  employees_groups = employees |> convert_list_element_to_df(column_to_unnest = 'groups.data') |>
 #'  tidyr::unnest(groups.data, names_sep ='__', keep_empty  = T)
-get_query <- function(url_path, filter='', KEY = ''){
-  carry_on = T ; page = 1
-  data_all = list()
-  while(carry_on){
-    url_use = paste0(url_path, '?page=',page, filter)
+get_query <- function(url_path, filter = '', KEY = '') {
+  carry_on <- TRUE
+  page <- 1
+  data_all <- list()
 
-    req = httr2::request(url_use) |> httr2::req_auth_basic(username = KEY, password = '') |> httr2::req_perform()
-    body = req$body |> rawToChar() |> jsonlite::prettify() |> jsonlite::fromJSON(simplifyDataFrame = T,flatten = T)
-    data = body$data |> as.data.frame()
+  while (carry_on) {
+    url_use <- paste0(url_path, '?page=', page, filter)
 
-    data_all[[page]] =  data
-    if(!body$meta$pagination$more){
-      carry_on = F
-    }else{
-      page = page + 1
+    # Safely try to perform the request
+    res <- tryCatch({
+      req <- httr2::request(url_use) |>
+        httr2::req_auth_basic(username = KEY, password = '') |>
+        httr2::req_perform()
+
+      # Check HTTP status
+      status <- httr2::resp_status(req)
+      if (status >= 400) stop(paste("HTTP error", status))
+
+      # Try parsing JSON
+      body <- req$body |>
+        rawToChar() |>
+        jsonlite::prettify() |>
+        jsonlite::fromJSON(simplifyDataFrame = TRUE, flatten = TRUE)
+
+      body
+    }, error = function(e) {
+      message("⚠️  Error accessing endpoint: ", url_use)
+      message("   → ", conditionMessage(e))
+      return(NULL)
+    })
+
+    # If request failed or body invalid → stop and return NULL
+    if (is.null(res) || !"data" %in% names(res)) return(NULL)
+
+    # Extract data and pagination
+    data <- tryCatch(as.data.frame(res$data), error = function(e) NULL)
+    if (is.null(data)) return(NULL)
+
+    data_all[[page]] <- data
+
+    if (!isTRUE(res$meta$pagination$more)) {
+      carry_on <- FALSE
+    } else {
+      page <- page + 1
     }
   }
-  names(data_all) = paste0('page_',1:length(data_all))
-  out = rbind_aggro(data_all)
-  out
+
+  names(data_all) <- paste0('page_', seq_along(data_all))
+
+  # Combine pages safely
+  tryCatch(
+    rbind_aggro(data_all),
+    error = function(e) NULL
+  )
 }
 
 
@@ -160,71 +194,70 @@ get_primary_school_student_data <- function(school_id, KEY = ''){
 
 
 #' @rdname get_school_student_data
-get_secondary_school_student_data <- function(school_id, KEY = ''){
+get_secondary_school_student_data <- function(school_id, KEY = '') {
+  # Get school info
+  url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/")
+  req <- httr2::request(url_path) |>
+    httr2::req_auth_basic(username = KEY, password = '') |>
+    httr2::req_perform()
+  body <- req$body |> rawToChar() |> jsonlite::prettify() |> jsonlite::fromJSON(simplifyVector = TRUE, flatten = TRUE)
+  data <- body$data
 
-  #### Get school info
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/")
-  req = request(url_path) |> httr2::req_auth_basic(username = KEY, password = '') |> httr2::req_perform()
-  body = req$body |> rawToChar() |> jsonlite::prettify() |> jsonlite::fromJSON(simplifyVector = T,flatten = T)
-  data = body$data
-  want = c('id', 'name', 'establishment_number', 'urn', 'phase_of_education')
-  index = match(want, names(data))
-  school = rep(NA, length(index))
-  for(i in index){
-    school[i] = data[[i]]
-  }
-  school = school|> data.frame() |> t() |> data.frame()
-  names(school) = paste0('school_', want)
+  want <- c('id', 'name', 'establishment_number', 'urn', 'phase_of_education')
+  school <- as.data.frame(t(data[want]))
+  names(school) <- paste0('school_', want)
 
-
-  # # ### Get all employee info.
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/")
-  employees = get_query(url_path, filter = '&include=groups', KEY = KEY)
-  employees_groups = employees |> convert_list_element_to_df(column_to_unnest = 'groups.data') |>
-    tidyr::unnest(groups.data, names_sep ='__', keep_empty  = T)
-
-  #### Get all students info.
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/")
-  student =  get_query(url_path, filter = '&include=year', KEY = KEY)
-
-  #### Get all students with nested classes (subject codes)  info.
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/")
-  students_classes =  get_query(url_path, filter = '&include=classes&include=classes.subject&include=classes.employees', KEY = KEY)
-
-  if('classes.data' %in% names(students_classes)){
-    students_classes  = students_classes |>
-      convert_list_element_to_df(column_to_unnest = 'classes.data') |>
-      tidyr::unnest(classes.data, names_sep ='__', keep_empty  = T)
-  }
-  if('classes.data__employees.data' %in% names(students_classes)){
-    students_classes  = students_classes |>
-      convert_list_element_to_df(column_to_unnest = 'classes.data__employees.data') |>
-      tidyr::unnest(classes.data__employees.data, names_sep ='__', keep_empty  = T)
+  # Try endpoints; skip those we can’t access
+  employees <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/"), filter = '&include=groups', KEY = KEY)
+  if (!is.null(employees)) {
+    employees <- employees |>
+      convert_list_element_to_df(column_to_unnest = 'groups.data') |>
+      tidyr::unnest(groups.data, names_sep ='__', keep_empty = TRUE)
   }
 
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/subjects/")
-  subjects =  get_query(url_path, filter = '', KEY = KEY)
+  student <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=year', KEY = KEY)
+  if (!is.null(student)) student <- cbind(school, student)
 
-  #### Get all students with nested groups info.
-  url_path = paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/")
-  students_group = get_query(url_path, filter = '&include=groups&include=groups.employees', KEY = KEY)
-  students_group = students_group |>
-    convert_list_element_to_df(column_to_unnest = 'groups.data') |>
-    tidyr::unnest(groups.data, names_sep ='__', keep_empty  = T) |>
-    convert_list_element_to_df(column_to_unnest = 'groups.data__employees.data') |>
-    tidyr::unnest(groups.data__employees.data, names_sep ='__', keep_empty  = T)
+  students_classes <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=classes&include=classes.subject&include=classes.employees', KEY = KEY)
+  if (!is.null(students_classes)) {
+    if ('classes.data' %in% names(students_classes)) {
+      students_classes <- students_classes |>
+        convert_list_element_to_df(column_to_unnest = 'classes.data') |>
+        tidyr::unnest(classes.data, names_sep ='__', keep_empty = TRUE)
+    }
+    if ('classes.data__employees.data' %in% names(students_classes)) {
+      students_classes <- students_classes |>
+        convert_list_element_to_df(column_to_unnest = 'classes.data__employees.data') |>
+        tidyr::unnest(classes.data__employees.data, names_sep ='__', keep_empty = TRUE)
+    }
+    students_classes <- cbind(school, students_classes)
+  }
 
-  #### Combine school and student information
-  student  = cbind(school,student)
-  students_group  = cbind(school,students_group)
-  students_classes  = cbind(school,students_classes)
+  subjects <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/subjects/"), KEY = KEY)
 
-  return(list(student = student,
-              students_group = students_group,
-              students_classes = students_classes,
-              subjects = subjects,
-              staff = employees))
+  students_group <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=groups&include=groups.employees', KEY = KEY)
+  if (!is.null(students_group)) {
+    students_group <- students_group |>
+      convert_list_element_to_df(column_to_unnest = 'groups.data') |>
+      tidyr::unnest(groups.data, names_sep ='__', keep_empty = TRUE) |>
+      convert_list_element_to_df(column_to_unnest = 'groups.data__employees.data') |>
+      tidyr::unnest(groups.data__employees.data, names_sep ='__', keep_empty = TRUE)
+    students_group <- cbind(school, students_group)
+  }
+
+  # Return only non-null components
+  result <- list(
+    student = student,
+    students_group = students_group,
+    students_classes = students_classes,
+    subjects = subjects,
+    staff = employees
+  )
+
+  result <- result[!vapply(result, is.null, logical(1))]
+  return(result)
 }
+
 
 #' Add education details (UPI, nc_year_actual) to extracted data.
 #'
