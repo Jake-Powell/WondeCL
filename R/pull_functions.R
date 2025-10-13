@@ -194,31 +194,55 @@ get_primary_school_student_data <- function(school_id, KEY = ''){
 
 
 #' @rdname get_school_student_data
-get_secondary_school_student_data <- function(school_id, KEY = '') {
-  # Get school info
+get_secondary_school_student_data <- function(school_id, KEY = '', verbose = TRUE) {
+  # Helper for messages
+  vcat <- function(...) if (verbose) message(...)
+
+  vcat("Fetching data for school: ", school_id)
+
+  # --- SCHOOL INFO ---
   url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/")
-  req <- httr2::request(url_path) |>
-    httr2::req_auth_basic(username = KEY, password = '') |>
-    httr2::req_perform()
-  body <- req$body |> rawToChar() |> jsonlite::prettify() |> jsonlite::fromJSON(simplifyVector = TRUE, flatten = TRUE)
+  req <- tryCatch({
+    httr2::request(url_path) |>
+      httr2::req_auth_basic(username = KEY, password = '') |>
+      httr2::req_perform()
+  }, error = function(e) {
+    message("⚠️  Unable to retrieve school info for ", school_id)
+    return(NULL)
+  })
+  if (is.null(req)) return(NULL)
+
+  body <- req$body |>
+    rawToChar() |>
+    jsonlite::prettify() |>
+    jsonlite::fromJSON(simplifyVector = TRUE, flatten = TRUE)
   data <- body$data
 
   want <- c('id', 'name', 'establishment_number', 'urn', 'phase_of_education')
   school <- as.data.frame(t(data[want]))
   names(school) <- paste0('school_', want)
 
-  # Try endpoints; skip those we can’t access
-  employees <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/"), filter = '&include=groups', KEY = KEY)
+  # --- EMPLOYEES ---
+  vcat("→ Employees")
+  employees <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/"),
+                         filter = '&include=groups', KEY = KEY)
   if (!is.null(employees)) {
     employees <- employees |>
       convert_list_element_to_df(column_to_unnest = 'groups.data') |>
-      tidyr::unnest(groups.data, names_sep ='__', keep_empty = TRUE)
+      tidyr::unnest(groups.data, names_sep = '__', keep_empty = TRUE)
   }
 
-  student <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=year', KEY = KEY)
+  # --- STUDENTS ---
+  vcat("→ Students (basic info)")
+  student <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
+                       filter = '&include=year', KEY = KEY)
   if (!is.null(student)) student <- cbind(school, student)
 
-  students_classes <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=classes&include=classes.subject&include=classes.employees', KEY = KEY)
+  # --- STUDENTS + CLASSES ---
+  vcat("→ Students + Classes")
+  students_classes <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
+                                filter = '&include=classes&include=classes.subject&include=classes.employees',
+                                KEY = KEY)
   if (!is.null(students_classes)) {
     if ('classes.data' %in% names(students_classes)) {
       students_classes <- students_classes |>
@@ -233,9 +257,15 @@ get_secondary_school_student_data <- function(school_id, KEY = '') {
     students_classes <- cbind(school, students_classes)
   }
 
-  subjects <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/subjects/"), KEY = KEY)
+  # --- SUBJECTS ---
+  vcat("→ Subjects")
+  subjects <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/subjects/"),
+                        KEY = KEY)
 
-  students_group <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"), filter = '&include=groups&include=groups.employees', KEY = KEY)
+  # --- STUDENTS + GROUPS ---
+  vcat("→ Students + Groups")
+  students_group <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
+                              filter = '&include=groups&include=groups.employees', KEY = KEY)
   if (!is.null(students_group)) {
     students_group <- students_group |>
       convert_list_element_to_df(column_to_unnest = 'groups.data') |>
@@ -245,16 +275,28 @@ get_secondary_school_student_data <- function(school_id, KEY = '') {
     students_group <- cbind(school, students_group)
   }
 
-  # Return only non-null components
+  # --- EDUCATION DETAILS (added endpoint) ---
+  vcat("→ Students + Education details")
+  students_education <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
+                                  filter = '&include=education_details', KEY = KEY)
+  if (!is.null(students_education)) {
+    students_education <- cbind(school, students_education)
+  }
+
+  # --- Assemble available data ---
   result <- list(
     student = student,
     students_group = students_group,
     students_classes = students_classes,
     subjects = subjects,
-    staff = employees
+    staff = employees,
+    education_details = students_education
   )
 
+  # remove NULL components
   result <- result[!vapply(result, is.null, logical(1))]
+
+  vcat("✅ Completed school: ", school_id)
   return(result)
 }
 
