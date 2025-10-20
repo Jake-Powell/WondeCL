@@ -2,44 +2,82 @@
 % Please edit documentation in R/pull_functions.R
 \name{get_primary_school_student_data}
 \alias{get_primary_school_student_data}
-\title{Get school information}
+\alias{get_secondary_school_student_data}
+\title{Retrieve School Student and Staff Data from Wonde API}
 \usage{
-get_primary_school_student_data(school_id, KEY = "")
+get_primary_school_student_data(school_id, KEY = "", verbose = TRUE)
+
+get_secondary_school_student_data(school_id, KEY = "", verbose = TRUE)
 }
 \arguments{
-\item{school_id}{wonde school ID}
+\item{school_id}{Character string giving the Wonde school ID.}
 
-\item{KEY}{API token}
+\item{KEY}{Character string; the Wonde API key used for authentication.}
+
+\item{verbose}{Logical; if TRUE (default), prints progress messages
+to the console as data are fetched.}
+}
+\value{
+A named list of data frames, typically including:
+\itemize{
+  \item `student` – basic student and school info.
+  \item `students_group` – student-group relationships.
+  \item `students_classes` – student-class relationships and staff assignments.
+  \item `subjects` – available subjects (mainly secondary).
+  \item `staff` – employee information and groups.
+  \item `education_details` – student education information.
+}
 }
 \description{
-Get school information
+Retrieves detailed student, staff, and class information from the Wonde API
+for either primary or secondary schools.
+
+These functions serve as wrappers around the Wonde v1.0 API and return
+structured data frames of students, staff, and their relationships to classes,
+subjects, and groups. Both functions now include education details.
 }
 \details{
-Given the school ID and KEY the function queries the Wonde API to extract:
+Each function performs several authenticated API requests to Wonde for
+a given `school_id`, assembling structured data on:
 
-- student information
-- student group information
-- student class information
-- staff information
-- subject information (secondary only)
+\itemize{
+  \item **school info** – name, URN, establishment number, and phase of education.
+  \item **staff (employees)** – teacher and employee data, including group memberships.
+  \item **students (basic info)** – student-level data, including year group.
+  \item **students + classes** – student-class relationships and associated staff.
+  \item **students + groups** – student group memberships and related employees.
+  \item **subjects** – subject-level metadata (typically secondary only).
+  \item **education details** – student education information (available for both primary and secondary schools).
+}
 
-This is returned as a list of data frames containing each subset of information.
+The functions rely on internal helpers:
+\itemize{
+  \item `get_query()` – handles paginated API requests.
+  \item `convert_list_element_to_df()` – flattens nested list structures.
+}
 
-Primary school information is obtained using `get_primary_school_student_data()` and secondary school information from `get_secondary_school_student_data()`.
+Any missing or NULL components are removed automatically before returning.
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-school_id = "Enter_ID_here"
-KEY = "Enter_KEY_here"
-primary_school_ids = c('A', 'B', 'C', 'D')
+\dontrun{
+# Primary school data
+primary_data <- get_primary_school_student_data(
+  school_id = "A123456789",
+  KEY = Sys.getenv("WONDE_API_KEY")
+)
 
-# Get info for individual school.
-primary_info = get_primary_school_student_data(school_id, KEY)
-secondary_info = get_secondary_school_student_data(school_id, KEY)
+# Secondary school data
+secondary_data <- get_secondary_school_student_data(
+  school_id = "B987654321",
+  KEY = Sys.getenv("WONDE_API_KEY")
+)
 
-# Loop over and extract info for all primary schools.
-primary_data_raw = lapply(primary_school_ids, function(id){get_primary_school_student_data(id, KEY) })
-names(primary_data_raw) = primary_school_ids
-primary_data_raw
-\dontshow{\}) # examplesIf}
+# Check available data sets
+names(primary_data)
+names(secondary_data)
+}
+
+}
+\seealso{
+\code{\link{get_query}}, \code{\link{convert_list_element_to_df}}
 }

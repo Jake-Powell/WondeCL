@@ -8,6 +8,7 @@
 \alias{update_class_teacher}
 \alias{remove_class}
 \alias{remove_student_from_class}
+\alias{withdraw_student_from_school_class}
 \title{functions to make manual changes to a cleaned class list}
 \usage{
 add_student_to_school_class(
@@ -98,25 +99,39 @@ remove_student_from_class(
   StudentIDColumn = "StudentId",
   verbose = F
 )
+
+withdraw_student_from_school_class(
+  data,
+  URN,
+  first_name,
+  last_name,
+  URNColumn = "URN",
+  FirstNameColumn = "Pupil First Name",
+  LastNameColumn = "Pupil Last Name",
+  WithdrawColumn = "Withdrawn?",
+  verbose = FALSE
+)
 }
 \arguments{
-\item{data}{class list}
+\item{data}{A data frame containing the class list.}
 
-\item{first_name}{the first name of the student/teacher to be added/updated/removed from the class list.}
+\item{first_name}{The student's first name (exact match, case-sensitive).}
 
-\item{last_name}{the last name (surname) of the student/teacher to be added/updated/removed from the class list.}
+\item{last_name}{The student's last name (exact match, case-sensitive).}
 
-\item{URN}{of the school whose school/class/teacher/student is to be updated. Used to identify class list record/s.}
+\item{URN}{The URN (school ID) of the school.}
 
 \item{class_name}{of the class to be added/updated/removed from the class list.}
 
 \item{DoB}{of the student to be added/updated/removed from the class list.}
 
-\item{URNColumn}{URN column in `data`. Default is 'URN'.}
+\item{UPN}{Unique person number from the DfE extracted from Wonde education details endpoint.}
 
-\item{FirstNameColumn}{student first name column in `data`. Default is "Pupil First Name".}
+\item{URNColumn}{The name of the column containing the URN (default \code{'URN'}).}
 
-\item{LastNameColumn}{student last name column in `data`. Default is "Pupil Last Name".}
+\item{FirstNameColumn}{The name of the column containing the first name (default \code{'Pupil First Name'}).}
+
+\item{LastNameColumn}{The name of the column containing the last name (default \code{'Pupil Last Name'}).}
 
 \item{ClassNameColumn}{class name column in `data`. Default is 'Class Name'.}
 
@@ -134,16 +149,26 @@ remove_student_from_class(
 
 \item{TeacherLNColumn}{teacher last name column in `data`. Default is "Main Teacher Last Name".}
 
-\item{verbose}{flag (TRUE/FALSE) for whether console messages are printed.}
+\item{verbose}{Logical; if \code{TRUE}, prints a short message about the change.}
 
 \item{new_name}{the new school/class/teacher (first + last) name to be added to the class list.}
 
 \item{student_id}{the student id/s of students to be removed from the class list.}
 
 \item{StudentIDColumn}{first name column in `data`. Default is "StudentId".}
+
+\item{WithdrawColumn}{The name of the column to mark as withdrawn (default \code{'Withdrawn?'}).}
+}
+\value{
+The updated data frame with the student marked as withdrawn.
+If no student or multiple students match, a warning is issued and
+no changes are made.
 }
 \description{
-functions to make manual changes to a cleaned class list
+Marks a specific student as withdrawn by setting the value of the
+\code{'Withdrawn?'} column to \code{'Y'} for the matching record.
+The function checks that exactly one student matches the given
+URN, first name, and last name.
 }
 \details{
 The functions do as their names suggests:
@@ -163,7 +188,7 @@ Note that these manual edits should be performed prior to adding OME ids, withdr
 \examples{
 \dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Get fake data (note the column names are such that we can use default values)
-data = WondePull::class_list_example
+data = WondeCL::class_list_example
 
 # Add student to a class within a school.
 df_new = data |> add_student_to_school_class(first_name = 'Jimmy',

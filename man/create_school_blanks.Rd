@@ -2,7 +2,7 @@
 % Please edit documentation in R/manual_class_list_changes.R
 \name{create_school_blanks}
 \alias{create_school_blanks}
-\title{Create a "Blank" class list given school and class information}
+\title{Create blank class lists for schools without Wonde data}
 \usage{
 create_school_blanks(
   schools_with_size,
@@ -16,43 +16,95 @@ create_school_blanks(
 )
 }
 \arguments{
-\item{schools_with_size}{A data frame where each row consists of a school with columns
-SchoolName, URN, classInfo (Optional), TeacherInfo (Optional), NoStudents (Pptional)..}
+\item{schools_with_size}{A data frame containing at least:
+\itemize{
+  \item `SchoolName` — The name of each school.
+  \item `URN` — The Unique Reference Number for each school.
+  \item `NoStudents` — Estimated number of students at the school.
+  \item Optional: `ClassInfo` (formatted as `"Class1 -> 28, Class2 -> 30"`)
+        to specify class names and sizes.
+  \item Optional: `TeacherInfo` (formatted as `"First Last, First Last"`)
+        to specify class teacher names.
+}}
 
-\item{teacher_name}{default teacher name in none are provided.}
+\item{numbering_type}{Character, default `"school"`. Determines how pupils
+are numbered. If `"school"`, assigns sequential pupil numbers across the
+entire school.}
 
-\item{class_name}{default class name if none are provided}
+\item{teacher_name}{Character vector of length 2 giving a default teacher
+first and last name to use when none is provided in `schools_with_size`.
+Defaults to `c("Reception", "Teacher")`.}
 
-\item{type}{type}
+\item{class_name}{Character, default `"Reception Class"`. The base name
+to use when automatically generating class names (e.g. `"Reception Class 1"`,
+`"Reception Class 2"`).}
 
-\item{class_buffer}{class buffer}
+\item{type}{Numeric or character, default `30`. If numeric, sets the default
+number of students per class. If not numeric (e.g. `"auto"`), class sizes
+are estimated from total student counts divided across inferred classes,
+plus an optional buffer (see `class_buffer`).}
 
-\item{class_size}{default class size if not provided.}
+\item{class_buffer}{Integer, default `5`. When class sizes are automatically
+estimated, this value is added to the computed class size to avoid undercounting.}
 
-\item{class_list_columns}{either 'master', 'print' or a vector of the columns wanted in order.}
+\item{class_size}{Integer, default `30`. Target class size used to determine
+how many classes to create per school when `ClassInfo` is missing.}
+
+\item{class_list_columns}{Character vector specifying the desired column
+structure of the returned data frame. Two shortcuts are available:
+\itemize{
+  \item `"master"` — returns all key fields (school info, teacher, pupil, IDs, withdrawal status).
+  \item `"print"` — returns a reduced set of fields for printing lists.
+}}
 }
 \value{
-formatted class list for "blanked" schools
+A data frame representing the generated class list for all supplied schools.
+The columns and order depend on the value of `class_list_columns`.
 }
 \description{
-Create a "Blank" class list given school and class information
+Generates synthetic or "blank" class lists for schools that do not have
+Wonde data access. The function uses provided school information (including
+estimated student counts and optional teacher or class information) to
+create mock class lists in a standardised format for downstream processing
+and printing.
+}
+\details{
+For each school, the function:
+\enumerate{
+  \item Parses `ClassInfo` and `TeacherInfo` columns (if present) to
+        determine the number and names of classes, and their associated teachers.
+  \item If `ClassInfo` is missing, automatically estimates the number
+        of classes required based on total student count and `class_size`.
+  \item Creates one or more blank class lists for each school, assigning
+        placeholder pupil numbers and teacher names.
+  \item Fills missing required columns with `NA` and reorders columns
+        according to `class_list_columns`.
+}
+
+This function is designed to ensure that downstream processing scripts
+(e.g., withdrawal handling, printing, ID assignment) can operate on schools
+even when no data has been received from Wonde.
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-## Create some blanked schools.
-A = c('Narcissus Primary School', 'Tulipa Primary School')
-B = c('321123', '567765')
-C = c('Pseudonarcissus -> 10', 'Albanica -> 30, Persica -> 29')
-D = c('Carl---Linnaeus','Kit---Tan, Robert---Sweet ')
-sch_info = data.frame(SchoolName = A,
-                      URN = B,
-                      ClassInfo = C,
-                      TeacherInfo = D)
-create_school_blanks(sch_info)
+\dontrun{
+# Example input data
+schools_df <- data.frame(
+  SchoolName = c("Maple Primary", "Oakwood Academy"),
+  URN = c(123456, 789012),
+  NoStudents = c(60, 90)
+)
 
-sch_info = data.frame(SchoolName = A,
-                      URN = B,
-                      NoStudents = c(25, 60))
-out = create_school_blanks(sch_info)
-\dontshow{\}) # examplesIf}
+# Create blank class lists
+blanks <- create_school_blanks(
+  schools_with_size = schools_df,
+  class_size = 30,
+  class_list_columns = "master"
+)
+
+head(blanks)
+}
+
+}
+\seealso{
+[rbind_aggro()] for combining multiple data frames safely.
 }

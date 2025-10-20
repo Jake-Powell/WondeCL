@@ -5,9 +5,8 @@
 \title{Extract a subject-specific class list from Wonde API data}
 \usage{
 extract_class_list(
-  secondary_data_raw,
+  WondeData,
   schools,
-  secondary,
   maths_names,
   maths_desc_names,
   year_pattern,
@@ -15,13 +14,10 @@ extract_class_list(
 )
 }
 \arguments{
-\item{secondary_data_raw}{List of school-level data as returned by
+\item{WondeData}{List of school-level data as returned by
 \code{get_secondary_school_student_data()}.}
 
 \item{schools}{Data frame of school metadata containing at least \code{id}, \code{name}, and \code{urn}.}
-
-\item{secondary}{Data frame defining per-school extraction settings, including
-\code{GetMathBySubject} and \code{GetMathByClassDescription}.}
 
 \item{maths_names}{Character vector of subject names to match (used when
 \code{GetMathBySubject = TRUE}).}
@@ -44,7 +40,7 @@ Extract a subject-specific class list from Wonde API data
 \examples{
 \dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 class_list_df <- extract_class_list(
-  secondary_data_raw = secondary_data_raw,
+  WondeData = WondeData,
   schools = schools,
   secondary = secondary,
   maths_names = c("Mathematics", "Maths"),

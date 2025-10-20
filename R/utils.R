@@ -1,42 +1,111 @@
 
-#' rbind dataframes with non-identical columns
+#' Combine data frames with non-identical columns
 #'
-#' @param list_of_data.frames list of data frames
+#' @description
+#' Safely combines a list of data frames that may have different column names,
+#' missing columns, or contain NULL or empty elements.
+#' Any missing columns are added to each data frame (filled with `NA`)
+#' before applying `rbind()`. NULL and empty data frames are skipped automatically.
 #'
-#' @return rbinded data frame
-#' @export
+#' @param list_of_data.frames A list of data frames to combine. NULL or zero-row
+#'   data frames will be ignored.
+#' @param warn_on_skip Logical, default `TRUE`. If `TRUE`, prints informative
+#'   messages when NULL or empty data frames are skipped.
+#'
+#' @return
+#' A single data frame containing all rows and all unique columns from
+#' the input list. Missing columns are filled with `NA`.
+#' If no valid data frames are present, returns an empty data frame.
 #'
 #' @details
-#' This function finds all unique column names across all data frames in `list_of_data.frames`
-#' and in each data frame in the list adjoins the missing columns whose values are set to NA. Then rbind is applied to the list of data frames.
+#' This function identifies all unique column names across all data frames in
+#' `list_of_data.frames`, ensures each has those columns (adding any missing
+#' columns filled with `NA`), and then performs a row bind.
 #'
-rbind_aggro <- function(list_of_data.frames){
-  if(length(list_of_data.frames) == 1){
+#' The function will:
+#' \itemize{
+#'   \item Remove NULL elements before combining.
+#'   \item Remove data frames with zero rows.
+#'   \item Optionally print a message for each skipped element when
+#'         `warn_on_skip = TRUE`.
+#'   \item Return an empty data frame if nothing valid remains.
+#' }
+#'
+#' @examples
+#' df1 <- data.frame(a = 1:3, b = 4:6)
+#' df2 <- data.frame(a = 7:8, c = c("x", "y"))
+#' df3 <- NULL
+#'
+#' result <- rbind_aggro(list(df1, df2, df3))
+#' print(result)
+#'
+#' @export
+rbind_aggro <- function(list_of_data.frames, warn_on_skip = TRUE) {
+  # ----------------------------------------------------------------
+  # 1. Remove NULL elements
+  # ----------------------------------------------------------------
+  null_flags <- sapply(list_of_data.frames, is.null)
+  null_count <- sum(null_flags)
+  if (null_count > 0 && warn_on_skip) {
+    message("rbind_aggro: Skipping ", null_count, " NULL data frame(s).")
+  }
+  list_of_data.frames <- list_of_data.frames[!null_flags]
+  
+  # ----------------------------------------------------------------
+  # 2. Remove zero-row data frames (if any)
+  # ----------------------------------------------------------------
+  empty_flags <- sapply(list_of_data.frames, function(x) nrow(x) == 0)
+  empty_count <- sum(empty_flags)
+  if (empty_count > 0 && warn_on_skip) {
+    message("rbind_aggro: Skipping ", empty_count, " empty data frame(s).")
+  }
+  list_of_data.frames <- list_of_data.frames[!empty_flags]
+  
+  # ----------------------------------------------------------------
+  # 3. Handle edge cases
+  # ----------------------------------------------------------------
+  if (length(list_of_data.frames) == 0) {
+    if (warn_on_skip) message("rbind_aggro: No data frames to combine. Returning empty data frame.")
+    return(data.frame())
+  }
+  
+  if (length(list_of_data.frames) == 1) {
     return(list_of_data.frames[[1]])
   }
-  all_fields = lapply(list_of_data.frames, function(x)names(x)) |> unlist() |> as.vector() |> unique()
-  data_frame_format = lapply(list_of_data.frames, function(df){
-    if(nrow(df) == 0){
-      return(NULL)
-    }
-    missing_names = all_fields[!all_fields %in% names(df)]
-    if(length(missing_names) > 0){
-      for(i in 1:length(missing_names)){
-        df[[missing_names[i]]] = NA
+  
+  # ----------------------------------------------------------------
+  # 4. Get all unique column names across all data frames
+  # ----------------------------------------------------------------
+  all_fields <- unique(unlist(lapply(list_of_data.frames, names)))
+  
+  # ----------------------------------------------------------------
+  # 5. Standardize columns and order
+  # ----------------------------------------------------------------
+  data_frame_format <- lapply(list_of_data.frames, function(df) {
+    missing_names <- setdiff(all_fields, names(df))
+    if (length(missing_names) > 0) {
+      for (name in missing_names) {
+        df[[name]] <- NA
       }
     }
-    df = df[,match(all_fields, names(df))]
+    df <- df[, match(all_fields, names(df)), drop = FALSE]
     df
   })
-  do.call(rbind, data_frame_format)
+  
+  # ----------------------------------------------------------------
+  # 6. Combine and return
+  # ----------------------------------------------------------------
+  combined_df <- do.call(rbind, data_frame_format)
+  rownames(combined_df) <- NULL
+  return(combined_df)
 }
+
 
 #' convert sublist element of data frame to a data frame
 #'
 #' @param data data
 #' @param column_to_unnest column_to_unnest
 #'
-#' @return
 #'
 convert_list_element_to_df <- function(data, column_to_unnest){
   for(i in 1:nrow(data)){

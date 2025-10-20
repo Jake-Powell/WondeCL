@@ -7,6 +7,7 @@
 #' @param last_name the last name (surname) of the student/teacher to be added/updated/removed from the class list.
 #' @param DoB of the student to be added/updated/removed from the class list.
 #' @param URN of the school whose school/class/teacher/student is to be updated. Used to identify class list record/s.
+#' @param UPN Unique person number from the DfE extracted from Wonde education details endpoint.
 #' @param class_name of the class to be added/updated/removed from the class list.
 #' @param new_class_name only used in `update_student_class()` to denote the class that the student is moving too (this is also used to obtain the teacher's name in the new class).
 #' @param new_name the new school/class/teacher (first + last) name to be added to the class list.
@@ -38,12 +39,11 @@
 #' Note that these manual edits should be performed prior to adding OME ids, withdrawing students or adding blanks (with the exception of remove_student_from_class() which requires some level of student ID to remove students).
 #'
 #'
-#' @return
 #' @export
 #'
 #' @examplesIf FALSE
 #' # Get fake data (note the column names are such that we can use default values)
-#' data = WondePull::class_list_example
+#' data = WondeCL::class_list_example
 #'
 #' # Add student to a class within a school.
 #' df_new = data |> add_student_to_school_class(first_name = 'Jimmy',
@@ -196,22 +196,46 @@ update_class_teacher <- function(data, URN, class_name, first_name, last_name,  
 }
 
 #' @rdname add_student_to_school_class
-remove_class <- function(data, URN, class_name, URNColumn = 'URN', ClassNameColumn = "Class Name", verbose = F){
-  if(!ClassNameColumn %in% names(data))(stop(paste0('ClassNameColumn: ', ClassNameColumn, ' not found  within data')))
-
-  to_remove_index = which(data[[URNColumn]] == URN & data[[ClassNameColumn]] %in% class_name)
-  classes_removed = data[[ClassNameColumn]][to_remove_index] |> unique()
-
-  data = data[-to_remove_index,]
-
-  if(verbose) cli::cli_inform(paste0('Removed ',classes_removed,' class containing ', length(to_remove_index), ' students'))
-
-  data
+remove_class <- function(data, URN, class_name,
+                         URNColumn = 'URN',
+                         ClassNameColumn = "Class Name",
+                         verbose = F) {
+  if (!ClassNameColumn %in% names(data)) {
+    stop(paste0("ClassNameColumn: ", ClassNameColumn, " not found within data"))
+  }
+  
+  to_remove_index <- which(data[[URNColumn]] == URN &
+                             data[[ClassNameColumn]] %in% class_name)
+  
+  if (length(to_remove_index) == 0) {
+    if (verbose) cli::cli_inform("No matching classes found to remove.")
+    return(data)
+  }
+  
+  classes_removed <- unique(data[[ClassNameColumn]][to_remove_index])
+  data <- data[-to_remove_index, ]
+  
+  if (verbose) {
+    cli::cli_inform(paste0(
+      "Removed ", paste(classes_removed, collapse = ", "),
+      " class(es) containing ", length(to_remove_index), " students"
+    ))
+  }
+  
+  return(data)
 }
+
 
 #' @rdname add_student_to_school_class
 remove_student_from_class <- function(data, URN, student_id, class_name, URNColumn = 'URN',
                                       ClassNameColumn = "Class Name",  StudentIDColumn = "StudentId",  verbose = F){
+  required_cols <- c(URNColumn, ClassNameColumn, StudentIDColumn)
+  missing_cols <- required_cols[!required_cols %in% names(data)]
+  if (length(missing_cols) > 0) {
+    stop("Missing required columns in data: ",
+         paste(missing_cols, collapse = ", "))
+  }
+  
   to_remove_index = which(data[[URNColumn]] == URN & data[[ClassNameColumn]] %in% class_name &
                             data[[StudentIDColumn]] %in% student_id)
   classes_removed = data[[ClassNameColumn]][to_remove_index] |> unique()
@@ -224,38 +248,100 @@ remove_student_from_class <- function(data, URN, student_id, class_name, URNColu
   data
 }
 
-
-#' Create a "Blank" class list given school and class information
+#' Create blank class lists for schools without Wonde data
 #'
-#' @param schools_with_size A data frame where each row consists of a school with columns
-#' SchoolName, URN, classInfo (Optional), TeacherInfo (Optional), NoStudents (Pptional)..
-#' @param teacher_name default teacher name in none are provided.
-#' @param class_name default class name if none are provided
-#' @param type type
-#' @param class_buffer class buffer
-#' @param class_size default class size if not provided.
-#' @param class_list_columns either 'master', 'print' or a vector of the columns wanted in order.
+#' @description
+#' Generates synthetic or "blank" class lists for schools that do not have
+#' Wonde data access. The function uses provided school information (including
+#' estimated student counts and optional teacher or class information) to
+#' create mock class lists in a standardised format for downstream processing
+#' and printing.
 #'
-#' @return formatted class list for "blanked" schools
+#' @param schools_with_size A data frame containing at least:
+#'   \itemize{
+#'     \item `SchoolName` — The name of each school.
+#'     \item `URN` — The Unique Reference Number for each school.
+#'     \item `NoStudents` — Estimated number of students at the school.
+#'     \item Optional: `ClassInfo` (formatted as `"Class1 -> 28, Class2 -> 30"`)
+#'           to specify class names and sizes.
+#'     \item Optional: `TeacherInfo` (formatted as `"First Last, First Last"`)
+#'           to specify class teacher names.
+#'   }
+#'
+#' @param numbering_type Character, default `"school"`. Determines how pupils
+#'   are numbered. If `"school"`, assigns sequential pupil numbers across the
+#'   entire school.
+#'
+#' @param teacher_name Character vector of length 2 giving a default teacher
+#'   first and last name to use when none is provided in `schools_with_size`.
+#'   Defaults to `c("Reception", "Teacher")`.
+#'
+#' @param class_name Character, default `"Reception Class"`. The base name
+#'   to use when automatically generating class names (e.g. `"Reception Class 1"`,
+#'   `"Reception Class 2"`).
+#'
+#' @param type Numeric or character, default `30`. If numeric, sets the default
+#'   number of students per class. If not numeric (e.g. `"auto"`), class sizes
+#'   are estimated from total student counts divided across inferred classes,
+#'   plus an optional buffer (see `class_buffer`).
+#'
+#' @param class_buffer Integer, default `5`. When class sizes are automatically
+#'   estimated, this value is added to the computed class size to avoid undercounting.
+#'
+#' @param class_size Integer, default `30`. Target class size used to determine
+#'   how many classes to create per school when `ClassInfo` is missing.
+#'
+#' @param class_list_columns Character vector specifying the desired column
+#'   structure of the returned data frame. Two shortcuts are available:
+#'   \itemize{
+#'     \item `"master"` — returns all key fields (school info, teacher, pupil, IDs, withdrawal status).
+#'     \item `"print"` — returns a reduced set of fields for printing lists.
+#'   }
+#'
+#' @details
+#' For each school, the function:
+#' \enumerate{
+#'   \item Parses `ClassInfo` and `TeacherInfo` columns (if present) to
+#'         determine the number and names of classes, and their associated teachers.
+#'   \item If `ClassInfo` is missing, automatically estimates the number
+#'         of classes required based on total student count and `class_size`.
+#'   \item Creates one or more blank class lists for each school, assigning
+#'         placeholder pupil numbers and teacher names.
+#'   \item Fills missing required columns with `NA` and reorders columns
+#'         according to `class_list_columns`.
+#' }
+#'
+#' This function is designed to ensure that downstream processing scripts
+#' (e.g., withdrawal handling, printing, ID assignment) can operate on schools
+#' even when no data has been received from Wonde.
+#'
+#' @return
+#' A data frame representing the generated class list for all supplied schools.
+#' The columns and order depend on the value of `class_list_columns`.
+#'
+#' @examples
+#' \dontrun{
+#' # Example input data
+#' schools_df <- data.frame(
+#'   SchoolName = c("Maple Primary", "Oakwood Academy"),
+#'   URN = c(123456, 789012),
+#'   NoStudents = c(60, 90)
+#' )
+#'
+#' # Create blank class lists
+#' blanks <- create_school_blanks(
+#'   schools_with_size = schools_df,
+#'   class_size = 30,
+#'   class_list_columns = "master"
+#' )
+#'
+#' head(blanks)
+#' }
+#'
+#' @seealso
+#' [rbind_aggro()] for combining multiple data frames safely.
+#'
 #' @export
-#'
-#' @examplesIf FALSE
-#' ## Create some blanked schools.
-#' A = c('Narcissus Primary School', 'Tulipa Primary School')
-#' B = c('321123', '567765')
-#' C = c('Pseudonarcissus -> 10', 'Albanica -> 30, Persica -> 29')
-#' D = c('Carl---Linnaeus','Kit---Tan, Robert---Sweet ')
-#' sch_info = data.frame(SchoolName = A,
-#'                       URN = B,
-#'                       ClassInfo = C,
-#'                       TeacherInfo = D)
-#' create_school_blanks(sch_info)
-#'
-#' sch_info = data.frame(SchoolName = A,
-#'                       URN = B,
-#'                       NoStudents = c(25, 60))
-#' out = create_school_blanks(sch_info)
-#'
 create_school_blanks <- function(schools_with_size,
                                  numbering_type = 'school',
                                  teacher_name = c('Reception', 'Teacher'),
@@ -389,4 +475,174 @@ create_school_blanks <- function(schools_with_size,
   out = class_list[,match(class_list_columns, names(class_list))]
 
   out
+}
+
+
+#' @rdname add_student_to_school_class
+#' @title Manually withdraw a student
+#'
+#' @description
+#' Marks a specific student as withdrawn by setting the value of the
+#' \code{'Withdrawn?'} column to \code{'Y'} for the matching record.
+#' The function checks that exactly one student matches the given
+#' URN, first name, and last name.
+#'
+#' @param data A data frame containing the class list.
+#' @param URN The URN (school ID) of the school.
+#' @param first_name The student's first name (exact match, case-sensitive).
+#' @param last_name The student's last name (exact match, case-sensitive).
+#' @param URNColumn The name of the column containing the URN (default \code{'URN'}).
+#' @param FirstNameColumn The name of the column containing the first name (default \code{'Pupil First Name'}).
+#' @param LastNameColumn The name of the column containing the last name (default \code{'Pupil Last Name'}).
+#' @param WithdrawColumn The name of the column to mark as withdrawn (default \code{'Withdrawn?'}).
+#' @param verbose Logical; if \code{TRUE}, prints a short message about the change.
+#'
+#' @return
+#' The updated data frame with the student marked as withdrawn.
+#' If no student or multiple students match, a warning is issued and
+#' no changes are made.
+#'
+#' @export
+withdraw_student_from_school_class <- function(data,
+                                               URN,
+                                               first_name,
+                                               last_name,
+                                               URNColumn = "URN",
+                                               FirstNameColumn = "Pupil First Name",
+                                               LastNameColumn = "Pupil Last Name",
+                                               WithdrawColumn = "Withdrawn?",
+                                               verbose = FALSE) {
+  
+  # Find matching student(s)
+  index <- which(data[[URNColumn]] == URN &
+                   data[[FirstNameColumn]] == first_name &
+                   data[[LastNameColumn]] == last_name)
+  
+  if (length(index) == 0) {
+    warning("No student found with the specified details. No changes made.")
+    return(data)
+  }
+  
+  if (length(index) > 1) {
+    warning("Multiple matching students found. No changes made.")
+    return(data)
+  }
+  
+  # Ensure Withdrawn? column exists
+  if (!WithdrawColumn %in% names(data)) {
+    data[[WithdrawColumn]] <- ""
+  }
+  
+  # Mark the student as withdrawn
+  data[[WithdrawColumn]][index] <- "Y"
+  
+  if (verbose) {
+    cli::cli_inform(paste0(
+      "Student ",
+      data[[FirstNameColumn]][index], " ",
+      data[[LastNameColumn]][index],
+      " from URN ", URN, " marked as withdrawn."
+    ))
+  }
+  
+  data
+}
+
+
+#' @title Remove schools from class list
+#' @description
+#' Removes all records (rows) from the class list that belong to one or more
+#' specified schools, identified either by name, URN, or both.
+#'
+#' This function is useful for manually excluding schools that should not be
+#' included in further analysis or reporting. At least one of
+#' \code{school_names} or \code{URNs} must be provided.
+#'
+#' @param data A data frame containing the class list.
+#' @param school_names A character vector of school names to remove (optional).
+#' @param URNs A character or numeric vector of URNs to remove (optional).
+#' @param SchoolNameColumn The name of the column containing school names
+#'   (default: \code{"School name"}).
+#' @param URNColumn The name of the column containing URNs
+#'   (default: \code{"URN"}).
+#' @param verbose Logical; if \code{TRUE}, prints a summary message of the
+#'   removals performed.
+#'
+#' @return
+#' The updated data frame with all rows for the specified schools removed.
+#'
+#' @examples
+#' \dontrun{
+#' # Remove by school name
+#' updated_class_list <- remove_school_from_class_list(
+#'   data = class_list,
+#'   school_names = c("Greenfield Primary School", "Hillside Academy")
+#' )
+#'
+#' # Remove by URN
+#' updated_class_list <- remove_school_from_class_list(
+#'   data = class_list,
+#'   URNs = c(123456, 987654)
+#' )
+#'
+#' # Remove by both
+#' updated_class_list <- remove_school_from_class_list(
+#'   data = class_list,
+#'   school_names = "Riverside Primary",
+#'   URNs = 123456
+#' )
+#' }
+#'
+#' @export
+remove_school_from_class_list <- function(data,
+                                          school_names = NULL,
+                                          URNs = NULL,
+                                          SchoolNameColumn = "School name",
+                                          URNColumn = "URN",
+                                          verbose = FALSE) {
+  # Check at least one input provided
+  if (is.null(school_names) && is.null(URNs)) {
+    stop("At least one of 'school_names' or 'URNs' must be provided.")
+  }
+  
+  # Confirm columns exist
+  if (!SchoolNameColumn %in% names(data) && !URNColumn %in% names(data)) {
+    stop("Neither school name nor URN columns found in data.")
+  }
+  
+  # Identify indices to remove
+  remove_index <- integer(0)
+  
+  if (!is.null(school_names) && SchoolNameColumn %in% names(data)) {
+    remove_index <- c(remove_index, which(data[[SchoolNameColumn]] %in% school_names))
+  }
+  
+  if (!is.null(URNs) && URNColumn %in% names(data)) {
+    remove_index <- c(remove_index, which(data[[URNColumn]] %in% URNs))
+  }
+  
+  remove_index <- unique(remove_index)
+  
+  if (length(remove_index) == 0) {
+    if (verbose) cli::cli_inform("No matching schools found; no rows removed.")
+    return(data)
+  }
+  
+  # Remove the identified rows
+  removed_data <- data[remove_index, , drop = FALSE]
+  data <- data[-remove_index, , drop = FALSE]
+  
+  if (verbose) {
+    removed_schools <- if (SchoolNameColumn %in% names(removed_data))
+      unique(removed_data[[SchoolNameColumn]]) else NULL
+    removed_urns <- if (URNColumn %in% names(removed_data))
+      unique(removed_data[[URNColumn]]) else NULL
+    
+    cli::cli_inform(paste0(
+      "Removed ", length(remove_index), " rows from ",
+      length(unique(c(removed_schools))), " school(s)."
+    ))
+  }
+  
+  data
 }

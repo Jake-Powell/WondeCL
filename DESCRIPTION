@@ -14,7 +14,8 @@ Imports:
     httr2,
     jsonlite,
     logr,
-    readr,
+    openxlsx,
+    pbapply,
     readxl,
     stringi,
     stringr,
@@ -24,3 +25,7 @@ BugReports: https://github.com/Jake-Powell/WondeCL/issues
 RoxygenNote: 7.3.2
 Depends: 
     R (>= 2.10)
+Suggests: 
+    OMEManage (>= 0.1.0)
+Remotes:  
+    Jake-Powell/OMEManage

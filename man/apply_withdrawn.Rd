@@ -2,25 +2,57 @@
 % Please edit documentation in R/withdrawing.R
 \name{apply_withdrawn}
 \alias{apply_withdrawn}
-\title{Withdraw students from a class list}
+\title{Apply withdrawn status to class list}
 \usage{
 apply_withdrawn(
   class_list,
-  withdrawn_students =
-    "Primary Cohort Study - Parent_guardian withdrawal form(1-89).xlsx",
+  withdrawn_students,
   school_link = "~/Wonde/Establishment_List_ID.xlsx",
   links_category = "Primary",
   expected_years = c(2019, 2020),
-  do_log = F
+  do_log = FALSE
 )
 }
 \arguments{
-\item{class_list}{class list}
+\item{class_list}{Data frame of class membership data.}
 
-\item{withdrawn_students}{path to an .xlsx file containing the withdrawn students.}
+\item{withdrawn_students}{Data frame of withdrawal form responses, or path to
+an Excel file containing them.}
 
-\item{do_log}{}
+\item{school_link}{Path to the school reference list Excel file.}
+
+\item{links_category}{Character vector of categories (for example "Primary")
+to filter the reference school list.}
+
+\item{expected_years}{Numeric vector of expected birth years to validate DoBs.}
+
+\item{do_log}{Logical; if TRUE, a log file ("Withdrawn_students.log") will be written.}
+}
+\value{
+A list with two elements:
+* class_list: Updated version of the input class list with a Withdrawn? column.
+* withdraw: Data frame of withdrawal records, including match details and indices.
 }
 \description{
-Withdraw students from a class list
+Matches withdrawn students (from a parent or guardian withdrawal spreadsheet)
+to the corresponding students in a class list and marks them as withdrawn.
+}
+\details{
+The function attempts to find each withdrawn student within the provided
+class_list by matching on school name, first name, last name, and where
+available, date of birth. It handles various date formats and normalizes name
+casing and punctuation to ensure robust matching.
+
+Matching is performed in this priority order:
+1. Exact first and last name match
+2. Partial first or last name match
+3. Partial match on both names
+4. First name and DoB match
+5. Exact surname match only
+
+The school name matching is handled by the internal function
+`.match_school_name()`.
+}
+\seealso{
+.match_school_name(), .process_withdrawn_dob()
 }
