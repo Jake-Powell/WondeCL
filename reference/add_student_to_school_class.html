@@ -66,7 +66,8 @@ URN, first name, and last name.</p>
 <span>  LastNameColumn <span class="op">=</span> <span class="st">"Pupil Last Name"</span>,</span>
 <span>  ClassNameColumn <span class="op">=</span> <span class="st">"Class Name"</span>,</span>
 <span>  DoBColumn <span class="op">=</span> <span class="st">"DoB"</span>,</span>
-<span>  UPNColumn <span class="op">=</span> <span class="st">"UPN"</span></span>
+<span>  UPNColumn <span class="op">=</span> <span class="st">"UPN"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">update_student_class</span><span class="op">(</span></span>
@@ -211,6 +212,10 @@ URN, first name, and last name.</p>
 <dd><p>UPN column in `data`. Default is 'UPN'.</p></dd>
 
 
+<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
+<dd><p>Logical; if <code>TRUE</code>, prints a short message about the change.</p></dd>
+
+
 <dt id="arg-new-class-name">new_class_name<a class="anchor" aria-label="anchor" href="#arg-new-class-name"></a></dt>
 <dd><p>only used in `update_student_class()` to denote the class that the student is moving too (this is also used to obtain the teacher's name in the new class).</p></dd>
 
@@ -229,10 +234,6 @@ URN, first name, and last name.</p>
 
 <dt id="arg-teacherlncolumn">TeacherLNColumn<a class="anchor" aria-label="anchor" href="#arg-teacherlncolumn"></a></dt>
 <dd><p>teacher last name column in `data`. Default is "Main Teacher Last Name".</p></dd>
-
-
-<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
-<dd><p>Logical; if <code>TRUE</code>, prints a short message about the change.</p></dd>
 
 
 <dt id="arg-new-name">new_name<a class="anchor" aria-label="anchor" href="#arg-new-name"></a></dt>
@@ -322,8 +323,6 @@ no changes are made.</p>
 <span class="r-in"><span><span class="va">df_new</span> <span class="op">|&gt;</span> <span class="fu">remove_student_from_class</span><span class="op">(</span>URN <span class="op">=</span> <span class="st">'123456'</span>,</span></span>
 <span class="r-in"><span>                                    class_name <span class="op">=</span> <span class="st">'French'</span>,</span></span>
 <span class="r-in"><span>                                    student_id <span class="op">=</span> <span class="va">student_rm</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
 </code></pre></div>
     </div>

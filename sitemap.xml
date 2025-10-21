@@ -22,7 +22,13 @@
 <url><loc>/reference/create_school_blanks.html</loc></url>
 <url><loc>/reference/detect_multiple_class_memberships.html</loc></url>
 <url><loc>/reference/detect_students_missing_class.html</loc></url>
+<url><loc>/reference/ensure_columns.html</loc></url>
 <url><loc>/reference/extract_class_list.html</loc></url>
+<url><loc>/reference/extract_class_list_classes_groups.html</loc></url>
+<url><loc>/reference/extract_field_across_schools.html</loc></url>
+<url><loc>/reference/extract_group_names_across_schools.html</loc></url>
+<url><loc>/reference/extract_group_types_across_schools.html</loc></url>
+<url><loc>/reference/extract_year_codes_across_schools.html</loc></url>
 <url><loc>/reference/get_class_sizes.html</loc></url>
 <url><loc>/reference/get_primary_school_student_data.html</loc></url>
 <url><loc>/reference/get_query.html</loc></url>
