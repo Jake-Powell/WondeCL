@@ -268,14 +268,15 @@ produce_class_lists <- function(data, class_name_column = 'ClassName',
   format[,-1]
 }
 
-#' Add blank rows to each class list
+
+#' Add spare rows to each class list
 #'
 #' @description
-#' Appends a specified number of blank rows to each unique class in a class list.
-#' The blank rows inherit key identifying fields (such as school name, URN,
+#' Appends a specified number of **spare (blank)** rows to each unique class in a class list.
+#' The spare rows inherit key identifying fields (such as school name, URN,
 #' class name, and teacher information) to allow for manual data entry,
 #' printing, or later updates. Optionally, a `"Spare?"` column can be added to
-#' flag the blank entries.
+#' flag the spare entries.
 #'
 #' @param class_list A data frame containing a class list, typically produced by
 #'   \code{\link{produce_class_lists}()} or \code{\link{create_school_blanks}()}.
@@ -291,37 +292,33 @@ produce_class_lists <- function(data, class_name_column = 'ClassName',
 #'     \item `Pupil First Name`
 #'   }
 #'
-#' @param no_blanks Integer. The number of blank rows to add for each unique
+#' @param no_spares Integer. The number of spare (blank) rows to add for each unique
 #'   class. Defaults to `3`.
 #'
 #' @param include_spare_column Logical. If `TRUE`, a column named `"Spare?"`
-#'   is added to the output, with `"Y"` marking the blank rows. Defaults to
+#'   is added to the output, with `"Y"` marking the spare rows. Defaults to
 #'   `FALSE`.
 #'
 #' @return
-#' A modified version of the input data frame with blank rows appended for each
+#' A modified version of the input data frame with spare rows appended for each
 #' unique class. If `include_spare_column = TRUE`, includes an additional
 #' `"Spare?"` column.
 #'
 #' @details
 #' This function is typically used to prepare finalized or printable class lists
-#' with placeholder rows for late student additions or manual notes. The blank
+#' with placeholder rows for late student additions. The spare
 #' entries are visually grouped at the end of each class when sorted.
 #'
-#' The blank rows are marked internally by setting `"Pupil Last Name"` to a
-#' placeholder value (`"ZZZZZZZZZZZZZZZZZ"`) to ensure correct ordering.
 #'
 #' @examples
 #' \dontrun{
-#' # Add three blank entries per class
-#' updated_list <- add_blanks(class_list, no_blanks = 3)
-#'
-#' # Add five blanks and include a "Spare?" indicator
-#' updated_list <- add_blanks(class_list, no_blanks = 5, include_spare_column = TRUE)
+#' # Add three spare entries per class
+#'  class_list = WondeCL::class_list_example
+#   updated_list = add_spares(class_list,no_spares = 3,include_spare_column = T)
 #' }
 #'
 #' @export
-add_blanks <- function(class_list, no_blanks = 3, include_spare_column = FALSE) {
+add_spares <- function(class_list, no_spares = 3, include_spare_column = FALSE) {
   no_col <- ncol(class_list)
   original_size <- nrow(class_list)
   care <- c("School name", "URN", "Class Name", "Main Teacher Name",
@@ -337,16 +334,16 @@ add_blanks <- function(class_list, no_blanks = 3, include_spare_column = FALSE) 
   split <- stringr::str_split(school_class, "---")
   index <- match(care, names(class_list))
   
-  # Append blank rows for each unique class
+  # Append spare (blank) rows for each unique class
   for (i in seq_along(school_class)) {
     to_add <- rep("", no_col)
     for (ii in seq_along(care)) to_add[index[ii]] <- split[[i]][ii]
-    for (y in seq_len(no_blanks)) {
+    for (y in seq_len(no_spares)) {
       class_list[nrow(class_list) + 1, ] <- to_add
     }
   }
   
-  # Mark blank rows
+  # Mark spare rows
   last_name <- class_list$`Pupil Last Name`
   last_name[(original_size + 1):nrow(class_list)] <- "ZZZZZZZZZZZZZZZZZ"
   
