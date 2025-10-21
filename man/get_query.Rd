@@ -32,7 +32,7 @@ or returns an empty result, `NULL` is returned so that downstream code can
 gracefully skip processing.
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 school_id <- "Enter_ID_here"
 KEY <- "Enter_KEY_here"
 

@@ -93,28 +93,66 @@
 #'                                     class_name = 'French',
 #'                                     student_id = student_rm)
 #'
-#'
-#'
-add_student_to_school_class <- function(data, first_name, last_name, URN, class_name, DoB = NA, UPN = NA,
-                                        URNColumn = 'URN',FirstNameColumn ="Pupil First Name",
-                                        LastNameColumn = "Pupil Last Name", ClassNameColumn = "Class Name",
-                                        DoBColumn = 'DoB', UPNColumn = 'UPN'){
-
-  school_index = which(data[[URNColumn]] == URN & data[[ClassNameColumn]] == class_name)
-  copy = data[school_index[1],]
-  copy[[FirstNameColumn]] = first_name
-  copy[[LastNameColumn]] = last_name
-  copy[[DoBColumn]] = DoB
-  if(UPNColumn %in% names(data)) copy[[UPNColumn]] = UPN
-
-  if(1 %in% school_index){
-    data = rbind(copy, data)
-  }else{
-    data = rbind(data[1:(school_index[1]-1),], copy, data[(school_index[1]):nrow(data),])
+add_student_to_school_class <- function(
+    data,
+    first_name,
+    last_name,
+    URN,
+    class_name,
+    DoB = NA,
+    UPN = NA,
+    URNColumn = "URN",
+    FirstNameColumn = "Pupil First Name",
+    LastNameColumn = "Pupil Last Name",
+    ClassNameColumn = "Class Name",
+    DoBColumn = "DoB",
+    UPNColumn = "UPN",
+    verbose = TRUE
+) {
+  vcat <- function(...) if (verbose) cli::cli_inform(list(message = paste(...)))
+  
+  # --- Validation checks ---
+  required_cols <- c(URNColumn, FirstNameColumn, LastNameColumn, ClassNameColumn, DoBColumn)
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0) {
+    stop("The following required columns are missing from 'data': ",
+         paste(missing_cols, collapse = ", "), call. = FALSE)
   }
-
-  data
+  
+  # --- Locate school/class rows ---
+  school_index <- which(data[[URNColumn]] == URN & data[[ClassNameColumn]] == class_name)
+  
+  if (length(school_index) == 0) {
+    stop("No matching school/class found for URN = ", URN,
+         " and class = '", class_name, "'.", call. = FALSE)
+  }
+  
+  vcat("Adding new student to", class_name, "(school URN:", URN, ")")
+  
+  # --- Create new student row ---
+  new_row <- data[school_index[1], , drop = FALSE]
+  new_row[[FirstNameColumn]] <- first_name
+  new_row[[LastNameColumn]] <- last_name
+  new_row[[DoBColumn]] <- DoB
+  if (UPNColumn %in% names(data)) new_row[[UPNColumn]] <- UPN
+  
+  # --- Insert new row in same section ---
+  insert_after <- max(school_index)
+  if (insert_after == nrow(data)) {
+    data <- rbind(data, new_row)
+  } else {
+    data <- rbind(
+      data[1:insert_after, ],
+      new_row,
+      data[(insert_after + 1):nrow(data), ]
+    )
+  }
+  
+  vcat("Student", first_name, last_name, "successfully added to", class_name)
+  return(data)
 }
+
+
 #' @rdname add_student_to_school_class
 update_student_class <- function(data, URN, first_name, last_name, class_name = NA, new_class_name,
                                  SchoolNameColumn = "School name", URNColumn = 'URN', ClassNameColumn = "Class Name",

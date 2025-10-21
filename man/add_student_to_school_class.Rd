@@ -24,7 +24,8 @@ add_student_to_school_class(
   LastNameColumn = "Pupil Last Name",
   ClassNameColumn = "Class Name",
   DoBColumn = "DoB",
-  UPNColumn = "UPN"
+  UPNColumn = "UPN",
+  verbose = TRUE
 )
 
 update_student_class(
@@ -139,6 +140,8 @@ withdraw_student_from_school_class(
 
 \item{UPNColumn}{UPN column in `data`. Default is 'UPN'.}
 
+\item{verbose}{Logical; if \code{TRUE}, prints a short message about the change.}
+
 \item{new_class_name}{only used in `update_student_class()` to denote the class that the student is moving too (this is also used to obtain the teacher's name in the new class).}
 
 \item{SchoolNameColumn}{school name column in `data`. Default is 'School Name'.}
@@ -148,8 +151,6 @@ withdraw_student_from_school_class(
 \item{TeacherFNColumn}{teacher first name column in `data`. Default is "Main Teacher First Name".}
 
 \item{TeacherLNColumn}{teacher last name column in `data`. Default is "Main Teacher Last Name".}
-
-\item{verbose}{Logical; if \code{TRUE}, prints a short message about the change.}
 
 \item{new_name}{the new school/class/teacher (first + last) name to be added to the class list.}
 
@@ -186,7 +187,7 @@ The functions do as their names suggests:
 Note that these manual edits should be performed prior to adding OME ids, withdrawing students or adding blanks (with the exception of remove_student_from_class() which requires some level of student ID to remove students).
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 # Get fake data (note the column names are such that we can use default values)
 data = WondeCL::class_list_example
 
@@ -237,7 +238,5 @@ student_rm = df_new$StudentId[df_new$`Pupil Last Name` == 'Powell']
 df_new |> remove_student_from_class(URN = '123456',
                                     class_name = 'French',
                                     student_id = student_rm)
-
-
 \dontshow{\}) # examplesIf}
 }

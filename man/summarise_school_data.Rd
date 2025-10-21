@@ -54,7 +54,7 @@ data and merges all derived summaries back into the supplied \code{schools}
 data frame.
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 summary_df <- summarise_school_data(
   schools = schools,
   WondeData = secondary_data_raw,

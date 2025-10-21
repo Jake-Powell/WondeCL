@@ -18,7 +18,7 @@ a and b combined into one list (i,e a[[1]], a[[2]], ... a[[N]], b[[1]], b[[2]], 
 combine two lists element-wise
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 list1 = list(A=1, B=2, C=3)
 list2 = list(D=1, E=2, F=3)
 combine_raw_data(list1, list2)

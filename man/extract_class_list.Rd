@@ -38,7 +38,7 @@ A data frame combining all matched student, class, and teacher information
 Extract a subject-specific class list from Wonde API data
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 class_list_df <- extract_class_list(
   WondeData = WondeData,
   schools = schools,

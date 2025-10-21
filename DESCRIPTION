@@ -22,10 +22,13 @@ Imports:
     tidyr
 URL: https://github.com/Jake-Powell/WondeCL
 BugReports: https://github.com/Jake-Powell/WondeCL/issues
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Depends: 
     R (>= 2.10)
 Suggests: 
-    OMEManage (>= 0.1.0)
-Remotes:  
+    knitr,
+    OMEManage (>= 0.1.0),
+    rmarkdown
+Remotes: 
     Jake-Powell/OMEManage
+VignetteBuilder: knitr
