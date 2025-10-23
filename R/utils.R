@@ -101,41 +101,110 @@ rbind_aggro <- function(list_of_data.frames, warn_on_skip = TRUE) {
 }
 
 
-#' convert sublist element of data frame to a data frame
+#' Convert list-column elements into data frames
 #'
-#' @param data data
-#' @param column_to_unnest column_to_unnest
+#' @description
+#' Ensures that all elements within a specified list-column of a data frame
+#' are valid data frames.  
+#' This function is particularly useful when working with nested data
+#' structures returned by APIs or list-based imports (such as Wonde data),
+#' where some entries may contain empty lists instead of empty data frames.
 #'
+#' Each element of the specified column is checked; if the element is an empty
+#' list, it is replaced with an empty data frame. This helps prevent downstream
+#' errors in functions that expect every list element to be a data frame.
 #'
-convert_list_element_to_df <- function(data, column_to_unnest){
-  for(i in 1:nrow(data)){
-    val = data[[column_to_unnest]][i][[1]]
-    if(is.list(val) &length(val) == 0){
-      data[[column_to_unnest]][i][[1]] = data.frame()
+#' @param data A data frame containing at least one list-column to process.
+#' @param column_to_unnest Character string giving the name of the column
+#'   whose elements should be checked and converted.
+#'
+#' @return
+#' The input \code{data} with the specified column modified such that any empty
+#' list elements are replaced by empty data frames.
+#'
+#' @details
+#' This function is typically used as a preprocessing step to standardize
+#' nested Wonde API outputs or other hierarchical data sources prior to
+#' unnesting, binding, or summarising operations.
+#'
+#' @examples
+#' \dontrun{
+#' # Example with an empty list element
+#' df <- data.frame(info = I(list(data.frame(a = 1), list(), data.frame(a = 2))))
+#' cleaned <- convert_list_element_to_df(df, "info")
+#' str(cleaned$info)
+#' }
+#'
+#' @export
+convert_list_element_to_df <- function(data, column_to_unnest) {
+  for (i in seq_len(nrow(data))) {
+    val <- data[[column_to_unnest]][i][[1]]
+    if (is.list(val) && length(val) == 0) {
+      data[[column_to_unnest]][i][[1]] <- data.frame()
     }
   }
   data
 }
 
 
-#' combine two lists element-wise
+
+#' Combine two Wonde raw data lists element-wise
 #'
-#' @param a list
-#' @param b list
+#' @description
+#' Merges two lists of raw Wonde school datasets (\code{a} and \code{b}) into a
+#' single combined list.  
+#' This is typically used to append newly retrieved school data (e.g., additional
+#' Wonde API extracts) to an existing dataset that was pulled earlier.
 #'
-#' @return a and b combined into one list (i,e a[[1]], a[[2]], ... a[[N]], b[[1]], b[[2]], ... b[[M]].)
+#' Each element of list \code{b} is added to list \code{a} using its name as the
+#' key. If a name already exists in \code{a}, it will be overwritten by the
+#' corresponding element from \code{b}.
 #'
-#' @examplesIf FALSE
-#' list1 = list(A=1, B=2, C=3)
-#' list2 = list(D=1, E=2, F=3)
-#' combine_raw_data(list1, list2)
+#' @param a A named list of Wonde raw datasets, usually the original data pulled
+#'   via \code{\link{get_primary_school_student_data}()} or
+#'   \code{\link{get_secondary_school_student_data}()}.
+#' @param b A second named list of Wonde raw datasets to be appended or merged
+#'   into \code{a}.
 #'
-combine_raw_data <- function(a, b){
-  for(i in 1:length(b)){
-    a[[names(b)[i]]] = b[[i]]
+#' @return
+#' A single combined list containing all elements from both \code{a} and
+#' \code{b}.  
+#' The resulting structure is suitable for downstream processing functions such
+#' as \code{\link{extract_class_list}()} or \code{\link{summarise_school_data}()}.
+#'
+#' @details
+#' This function is commonly used when some schools are pulled from the Wonde API
+#' at a later time (for example, schools missing from the original retrieval).  
+#' Instead of re-pulling all data, you can append the new raw extracts directly
+#' using this helper.  
+#'
+#' The combination is done by name: each element in \code{b} is added to
+#' \code{a} under its existing name (usually the Wonde school ID). If duplicate
+#' names are present, entries from \code{b} will overwrite those in \code{a}.
+#'
+#' @examples
+#' \dontrun{
+#' # Original Wonde data
+#' raw_data_1 <- get_secondary_school_student_data(school_ids = c("A100001", "A100002"))
+#'
+#' # Later, new schools become available
+#' raw_data_2 <- get_secondary_school_student_data(school_ids = c("A100003", "A100004"))
+#'
+#' # Combine both into one object
+#' combined_raw <- combine_raw_data(raw_data_1, raw_data_2)
+#'
+#' # The result can then be used in extract_class_list()
+#' class_list <- extract_class_list(WondeData = combined_raw, ...)
+#' }
+#'
+#' @export
+combine_raw_data <- function(a, b) {
+  for (i in seq_along(b)) {
+    a[[names(b)[i]]] <- b[[i]]
   }
   return(a)
 }
+
 
 #' Clean names
 #'

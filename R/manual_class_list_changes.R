@@ -36,7 +36,7 @@
 #'
 #' }
 #'
-#' Note that these manual edits should be performed prior to adding OME ids, withdrawing students or adding blanks (with the exception of remove_student_from_class() which requires some level of student ID to remove students).
+#' Note that these manual edits should be performed prior to adding student ids, withdrawing students or adding blanks (with the exception of remove_student_from_class() which requires some level of student ID to remove students).
 #'
 #'
 #' @export

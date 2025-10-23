@@ -176,7 +176,7 @@ summarise_school_data <- function(
 #' @param class_col Column name for class names. Default: `"Class Name"`.
 #' @param pupil_col Column name for pupil names (used only if no unique ID column is provided).
 #'   Default: `"Pupil First Name"`.
-#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"OME_ID"`).
+#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
 #'   If provided and present in `class_list`, counts of students per class will use distinct values
 #'   in this column. If `NULL` (default), each row is assumed to represent one student.
 #' @param threshold Numeric. The maximum class size considered "small". Default: `3`.
@@ -256,7 +256,7 @@ summarise_small_classes <- function(class_list,
 #'   \item The total number of students in the school.
 #'   \item The percentage of the school's students that belong to each class.
 #' }
-#' Optionally counts unique students by ID (e.g. `"UPN"` or `"OME_ID"`).
+#' Optionally counts unique students by ID (e.g. `"UPN"` or `"ID"`).
 #'
 #' @param class_list A data frame containing at least the columns:
 #'   `"School name"`, `"URN"`, `"Class Name"`, and `"Pupil First Name"`.
@@ -265,7 +265,7 @@ summarise_small_classes <- function(class_list,
 #' @param class_col Column name for class names. Default: `"Class Name"`.
 #' @param pupil_col Column name for pupil names (used only if no unique ID column is provided).
 #'   Default: `"Pupil First Name"`.
-#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"OME_ID"`).
+#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
 #'   If provided and present in `class_list`, counts of students per class will use distinct values
 #'   in this column. If `NULL` (default), each row is assumed to represent one student.
 #'

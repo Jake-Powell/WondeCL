@@ -27,7 +27,7 @@ summarise_small_classes(
 \item{pupil_col}{Column name for pupil names (used only if no unique ID column is provided).
 Default: `"Pupil First Name"`.}
 
-\item{unique_id_col}{(Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"OME_ID"`).
+\item{unique_id_col}{(Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
 If provided and present in `class_list`, counts of students per class will use distinct values
 in this column. If `NULL` (default), each row is assumed to represent one student.}
 

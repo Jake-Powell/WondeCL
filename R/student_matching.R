@@ -1,58 +1,59 @@
-#' @title Add OME_IDs (and original data) from a previous class list
+#' @title Add Student_IDs (and original data) from a previous class list
+#'
 #' @description
-#' Reuses existing \code{OME_ID} values from a previous class list by matching
+#' Reuses existing \code{Student_ID} values from a previous class list by matching
 #' students in a new class list. Matching is first attempted by UPN (for rows
 #' with a valid UPN), then by name (first and last name) restricted to the same
 #' school (by URN). If both datasets have date of birth information, mismatches
 #' are flagged by appending "DoB not matched" to the match method description.
 #'
 #' @param new_class_list Data frame of the current class list.
-#' @param old_class_list Data frame of the previous class list (must contain \code{OME_ID}).
+#' @param old_class_list Data frame of the previous class list (must contain \code{Student_ID}).
 #' @param FN_column Column name for pupil first names (default: "Pupil First Name").
 #' @param LN_column Column name for pupil last names (default: "Pupil Last Name").
 #' @param DoB_column Column name for pupil date of birth (default: "DoB").
 #' @param UPN_column Column name for pupil UPNs (default: "UPN").
 #' @param URN_column Column name for school URNs (default: "URN").
-#' @param OME_ID_column Column name for OME IDs (default: "OME_ID").
+#' @param Student_ID_column Column name for student IDs (default: "Student_ID").
 #' @param verbose Logical; if TRUE, prints progress information.
 #' @param fuzzy_match Logical; if TRUE, performs fuzzy name matching using
-#'   OMEManage::match_person_to_data() for remaining unmatched students.
+#'   \code{OMEManage::match_person_to_data()} for remaining unmatched students.
 #' @param max_dist Maximum allowed edit distance for fuzzy name matching (default: 2).
-#' @param method Method passed to stringdist::stringdist() (default: "osa").
+#' @param method Method passed to \code{stringdist::stringdist()} (default: "osa").
 #'
 #' @return
 #' The updated new_class_list data frame with:
 #' \itemize{
-#'   \item OME_ID filled where possible from the previous dataset
+#'   \item Student_ID filled where possible from the previous dataset
 #'   \item Match Method column ("UPN", "EXACT", "FUZZY MATCH", etc.)
 #'   \item Old data columns: Old Pupil First Name, Old Pupil Last Name, and Old DoB (if available)
 #' }
 #'
 #' @export
-add_ome_ids_from_previous <- function(new_class_list,
-                                      old_class_list,
-                                      FN_column = "Pupil First Name",
-                                      LN_column = "Pupil Last Name",
-                                      DoB_column = "DoB",
-                                      UPN_column = "UPN",
-                                      URN_column = "URN",
-                                      OME_ID_column = "OME_ID",
-                                      verbose = FALSE,
-                                      fuzzy_match = TRUE,
-                                      max_dist = 2,
-                                      method = "osa") {
+add_student_ids_from_previous <- function(new_class_list,
+                                          old_class_list,
+                                          FN_column = "Pupil First Name",
+                                          LN_column = "Pupil Last Name",
+                                          DoB_column = "DoB",
+                                          UPN_column = "UPN",
+                                          URN_column = "URN",
+                                          Student_ID_column = "Student_ID",
+                                          verbose = FALSE,
+                                          fuzzy_match = TRUE,
+                                          max_dist = 2,
+                                          method = "osa") {
   
   # --- Column checks ---
   for (col in c(FN_column, LN_column, URN_column)) {
     if (!col %in% names(new_class_list))
       stop(paste("Missing column in new_class_list:", col))
   }
-  if (!OME_ID_column %in% names(old_class_list))
-    stop("Old class list must contain OME_ID column")
+  if (!Student_ID_column %in% names(old_class_list))
+    stop("Old class list must contain Student_ID column")
   
   # --- Ensure target columns exist ---
-  if (!OME_ID_column %in% names(new_class_list))
-    new_class_list[[OME_ID_column]] <- NA
+  if (!Student_ID_column %in% names(new_class_list))
+    new_class_list[[Student_ID_column]] <- NA
   
   new_class_list$`Match Method` <- rep("None", nrow(new_class_list))
   new_class_list$`Old Pupil First Name` <- NA
@@ -74,8 +75,8 @@ add_ome_ids_from_previous <- function(new_class_list,
                              old_class_list[[UPN_column]])
     valid <- non_na_upn[!is.na(upn_match_index)]
     
-    new_class_list[[OME_ID_column]][valid] <-
-      old_class_list[[OME_ID_column]][upn_match_index[!is.na(upn_match_index)]]
+    new_class_list[[Student_ID_column]][valid] <-
+      old_class_list[[Student_ID_column]][upn_match_index[!is.na(upn_match_index)]]
     new_class_list$`Match Method`[valid] <- "UPN"
     
     if (FN_column %in% names(old_class_list))
@@ -97,8 +98,8 @@ add_ome_ids_from_previous <- function(new_class_list,
   # --------------------------------------------------------------------------
   # 2. Name-based matching for remaining students
   # --------------------------------------------------------------------------
-  remaining <- which(is.na(new_class_list[[OME_ID_column]]) |
-                       new_class_list[[OME_ID_column]] == "")
+  remaining <- which(is.na(new_class_list[[Student_ID_column]]) |
+                       new_class_list[[Student_ID_column]] == "")
   
   if (length(remaining) > 0 && fuzzy_match) {
     if (verbose)
@@ -121,7 +122,7 @@ add_ome_ids_from_previous <- function(new_class_list,
       old_data_school <- old_class_list[old_class_list[[URN_column]] == urn, ]
       
       if (nrow(old_data_school) == 0)
-        return(list(UPI = NA, msg = "No school data", old_FN = NA, old_LN = NA, old_DoB = NA))
+        return(list(ID = NA, msg = "No school data", old_FN = NA, old_LN = NA, old_DoB = NA))
       
       # --- Use fuzzy/exact matching ---
       if (requireNamespace("OMEManage", quietly = TRUE)) {
@@ -131,7 +132,7 @@ add_ome_ids_from_previous <- function(new_class_list,
           data = old_data_school,
           FN_column = FN_column,
           LN_column = LN_column,
-          UPI_column = OME_ID_column,
+          UPI_column = Student_ID_column,
           max_dist = max_dist,
           method = method,
           show_all_fuzzy = FALSE
@@ -156,7 +157,7 @@ add_ome_ids_from_previous <- function(new_class_list,
           }
         }
         
-        list(UPI = out$UPI,
+        list(ID = out$UPI,
              msg = msg,
              old_FN = old_FN,
              old_LN = old_LN,
@@ -167,25 +168,25 @@ add_ome_ids_from_previous <- function(new_class_list,
         idx <- which(toupper(old_data_school[[FN_column]]) == toupper(FN) &
                        toupper(old_data_school[[LN_column]]) == toupper(LN))
         if (length(idx) == 1) {
-          list(UPI = old_data_school[[OME_ID_column]][idx],
+          list(ID = old_data_school[[Student_ID_column]][idx],
                msg = "EXACT (fallback)",
                old_FN = old_data_school[[FN_column]][idx],
                old_LN = old_data_school[[LN_column]][idx],
                old_DoB = if (DoB_column %in% names(old_data_school))
                  old_data_school[[DoB_column]][idx] else NA)
         } else {
-          list(UPI = NA, msg = "No match", old_FN = NA, old_LN = NA, old_DoB = NA)
+          list(ID = NA, msg = "No match", old_FN = NA, old_LN = NA, old_DoB = NA)
         }
       }
     })
     
     match_df <- do.call(rbind, lapply(match_rows, function(x)
-      data.frame(OME_ID = x$UPI, MatchMethod = x$msg,
+      data.frame(Student_ID = x$ID, MatchMethod = x$msg,
                  OldFN = x$old_FN, OldLN = x$old_LN, OldDoB = x$old_DoB,
                  stringsAsFactors = FALSE)))
     
     # Apply results
-    new_class_list[[OME_ID_column]][remaining] <- match_df$OME_ID
+    new_class_list[[Student_ID_column]][remaining] <- match_df$Student_ID
     new_class_list$`Match Method`[remaining] <- match_df$MatchMethod
     new_class_list$`Old Pupil First Name`[remaining] <- match_df$OldFN
     new_class_list$`Old Pupil Last Name`[remaining] <- match_df$OldLN
@@ -193,13 +194,13 @@ add_ome_ids_from_previous <- function(new_class_list,
     
     if (verbose)
       cli::cli_inform(paste0("Matched ",
-                             sum(!is.na(match_df$OME_ID)),
+                             sum(!is.na(match_df$Student_ID)),
                              " additional students by name (same school)."))
   }
   
   if (verbose) {
     total_matched <- sum(new_class_list$`Match Method` != "None")
-    cli::cli_inform(paste0("Finished assigning OME_IDs. ",
+    cli::cli_inform(paste0("Finished assigning Student_IDs. ",
                            total_matched, " total matched."))
   }
   

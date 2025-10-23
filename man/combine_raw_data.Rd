@@ -2,25 +2,57 @@
 % Please edit documentation in R/utils.R
 \name{combine_raw_data}
 \alias{combine_raw_data}
-\title{combine two lists element-wise}
+\title{Combine two Wonde raw data lists element-wise}
 \usage{
 combine_raw_data(a, b)
 }
 \arguments{
-\item{a}{list}
+\item{a}{A named list of Wonde raw datasets, usually the original data pulled
+via \code{\link{get_primary_school_student_data}()} or
+\code{\link{get_secondary_school_student_data}()}.}
 
-\item{b}{list}
+\item{b}{A second named list of Wonde raw datasets to be appended or merged
+into \code{a}.}
 }
 \value{
-a and b combined into one list (i,e a[[1]], a[[2]], ... a[[N]], b[[1]], b[[2]], ... b[[M]].)
+A single combined list containing all elements from both \code{a} and
+\code{b}.  
+The resulting structure is suitable for downstream processing functions such
+as \code{\link{extract_class_list}()} or \code{\link{summarise_school_data}()}.
 }
 \description{
-combine two lists element-wise
+Merges two lists of raw Wonde school datasets (\code{a} and \code{b}) into a
+single combined list.  
+This is typically used to append newly retrieved school data (e.g., additional
+Wonde API extracts) to an existing dataset that was pulled earlier.
+
+Each element of list \code{b} is added to list \code{a} using its name as the
+key. If a name already exists in \code{a}, it will be overwritten by the
+corresponding element from \code{b}.
+}
+\details{
+This function is commonly used when some schools are pulled from the Wonde API
+at a later time (for example, schools missing from the original retrieval).  
+Instead of re-pulling all data, you can append the new raw extracts directly
+using this helper.  
+
+The combination is done by name: each element in \code{b} is added to
+\code{a} under its existing name (usually the Wonde school ID). If duplicate
+names are present, entries from \code{b} will overwrite those in \code{a}.
 }
 \examples{
-\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-list1 = list(A=1, B=2, C=3)
-list2 = list(D=1, E=2, F=3)
-combine_raw_data(list1, list2)
-\dontshow{\}) # examplesIf}
+\dontrun{
+# Original Wonde data
+raw_data_1 <- get_secondary_school_student_data(school_ids = c("A100001", "A100002"))
+
+# Later, new schools become available
+raw_data_2 <- get_secondary_school_student_data(school_ids = c("A100003", "A100004"))
+
+# Combine both into one object
+combined_raw <- combine_raw_data(raw_data_1, raw_data_2)
+
+# The result can then be used in extract_class_list()
+class_list <- extract_class_list(WondeData = combined_raw, ...)
+}
+
 }

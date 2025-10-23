@@ -2,15 +2,42 @@
 % Please edit documentation in R/utils.R
 \name{convert_list_element_to_df}
 \alias{convert_list_element_to_df}
-\title{convert sublist element of data frame to a data frame}
+\title{Convert list-column elements into data frames}
 \usage{
 convert_list_element_to_df(data, column_to_unnest)
 }
 \arguments{
-\item{data}{data}
+\item{data}{A data frame containing at least one list-column to process.}
 
-\item{column_to_unnest}{column_to_unnest}
+\item{column_to_unnest}{Character string giving the name of the column
+whose elements should be checked and converted.}
+}
+\value{
+The input \code{data} with the specified column modified such that any empty
+list elements are replaced by empty data frames.
 }
 \description{
-convert sublist element of data frame to a data frame
+Ensures that all elements within a specified list-column of a data frame
+are valid data frames.  
+This function is particularly useful when working with nested data
+structures returned by APIs or list-based imports (such as Wonde data),
+where some entries may contain empty lists instead of empty data frames.
+
+Each element of the specified column is checked; if the element is an empty
+list, it is replaced with an empty data frame. This helps prevent downstream
+errors in functions that expect every list element to be a data frame.
+}
+\details{
+This function is typically used as a preprocessing step to standardize
+nested Wonde API outputs or other hierarchical data sources prior to
+unnesting, binding, or summarising operations.
+}
+\examples{
+\dontrun{
+# Example with an empty list element
+df <- data.frame(info = I(list(data.frame(a = 1), list(), data.frame(a = 2))))
+cleaned <- convert_list_element_to_df(df, "info")
+str(cleaned$info)
+}
+
 }
