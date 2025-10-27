@@ -29,6 +29,9 @@
 <url><loc>/reference/extract_group_names_across_schools.html</loc></url>
 <url><loc>/reference/extract_group_types_across_schools.html</loc></url>
 <url><loc>/reference/extract_year_codes_across_schools.html</loc></url>
+<url><loc>/reference/filter_WondeData.html</loc></url>
+<url><loc>/reference/filter_primary_WondeData.html</loc></url>
+<url><loc>/reference/filter_secondary_WondeData.html</loc></url>
 <url><loc>/reference/get_class_sizes.html</loc></url>
 <url><loc>/reference/get_primary_school_student_data.html</loc></url>
 <url><loc>/reference/get_query.html</loc></url>
