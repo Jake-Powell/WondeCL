@@ -78,7 +78,8 @@ update_class_teacher(
   TeacherColumn = "Main Teacher Name",
   TeacherFNColumn = "Main Teacher First Name",
   TeacherLNColumn = "Main Teacher Last Name",
-  verbose = F
+  overwrite = TRUE,
+  verbose = FALSE
 )
 
 remove_class(
@@ -153,6 +154,8 @@ withdraw_student_from_school_class(
 \item{TeacherLNColumn}{teacher last name column in `data`. Default is "Main Teacher Last Name".}
 
 \item{new_name}{the new school/class/teacher (first + last) name to be added to the class list.}
+
+\item{overwrite}{Whether the changes overwrite the current values in the data or whether the subsection with changes is appended onto the data.}
 
 \item{student_id}{the student id/s of students to be removed from the class list.}
 

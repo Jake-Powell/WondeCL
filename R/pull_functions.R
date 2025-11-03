@@ -397,6 +397,87 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   return(result)
 }
 
+#' Retrieve school information from the Wonde API
+#'
+#' Queries the Wonde API to retrieve information about all schools linked to your Wonde account.
+#'
+#' @param KEY Character string. Your Wonde API key. If not supplied, the function will attempt to use
+#'   the environment variable `WONDE_KEY`.
+#'
+#' @return A data frame or list of school information returned by the Wonde API.
+#'   The structure will depend on the response from \code{WondeCL::get_query()}.
+#'
+#' @details
+#' This function is a wrapper around \code{WondeCL::get_query()}, specifically for retrieving
+#' school data from the Wonde API. It automatically constructs the appropriate endpoint
+#' and handles missing or invalid API keys.
+#'
+#' @examplesIf FALSE
+#' \dontrun{
+#' # Example usage
+#' schools <- get_schools(KEY = "your_api_key_here")
+#' }
+#'
+#' @seealso [WondeCL::get_query()] for the underlying query function.
+#' @export
+get_schools <- function(KEY = "") {
+  # ----------------------------------------------------------
+  # 1. Check for API key
+  # ----------------------------------------------------------
+  if (KEY == "") {
+    KEY <- Sys.getenv("WONDE_KEY")
+    if (KEY == "") {
+      stop("No API key provided. Please supply a key via KEY argument or set the WONDE_KEY environment variable.")
+    }
+  }
+  
+  # ----------------------------------------------------------
+  # 2. Construct API endpoint
+  # ----------------------------------------------------------
+  url_path <- "https://api.wonde.com/v1.0/schools/"
+  
+  # ----------------------------------------------------------
+  # 3. Attempt query and handle errors
+  # ----------------------------------------------------------
+  result <- tryCatch(
+    {
+      WondeCL::get_query(url_path, KEY = KEY)
+    },
+    error = function(e) {
+      cli::cli_alert_danger("Error retrieving data from Wonde API: {conditionMessage(e)}")
+      return(NULL)
+    },
+    warning = function(w) {
+      cli::cli_alert_warning("Warning from Wonde API: {conditionMessage(w)}")
+      invokeRestart("muffleWarning")
+    }
+  )
+  
+  # ----------------------------------------------------------
+  # 4. Validate output
+  # ----------------------------------------------------------
+  if (is.null(result)) {
+    cli::cli_alert_warning("No data returned from Wonde API.")
+    return(NULL)
+  }
+  
+  if (length(result) == 0) {
+    cli::cli_alert_warning("The Wonde API returned an empty result.")
+  }
+  
+  if (!("data" %in% names(result))) {
+    cli::cli_alert_warning("Unexpected response format: missing 'data' field.")
+  }
+  
+  # ----------------------------------------------------------
+  # 5. Return result
+  # ----------------------------------------------------------
+  if ("data" %in% names(result)) {
+    return(result$data)
+  } else {
+    return(result)
+  }
+}
 
 
 

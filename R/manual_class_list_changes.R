@@ -22,6 +22,7 @@
 #' @param ClassNameColumn class name column in `data`. Default is 'Class Name'.
 #' @param URNColumn URN column in `data`. Default is 'URN'.
 #' @param SchoolNameColumn school name column in `data`. Default is 'School Name'.
+#' @param overwrite Whether the changes overwrite the current values in the data or whether the subsection with changes is appended onto the data.
 #'
 #' @details
 #' The functions do as their names suggests:
@@ -154,6 +155,7 @@ add_student_to_school_class <- function(
 
 
 #' @rdname add_student_to_school_class
+#' @export
 update_student_class <- function(data, URN, first_name, last_name, class_name = NA, new_class_name,
                                  SchoolNameColumn = "School name", URNColumn = 'URN', ClassNameColumn = "Class Name",
                                  FirstNameColumn ="Pupil First Name", LastNameColumn = "Pupil Last Name",
@@ -183,6 +185,7 @@ update_student_class <- function(data, URN, first_name, last_name, class_name = 
 }
 
 #' @rdname add_student_to_school_class
+#' @export
 update_class_name <- function(data, URN, class_name, new_name,
                               SchoolNameColumn = "School name", URNColumn = 'URN', ClassNameColumn = "Class Name",
                               verbose = F){
@@ -201,6 +204,7 @@ update_class_name <- function(data, URN, class_name, new_name,
 
 
 #' @rdname add_student_to_school_class
+#' @export
 update_school_name <- function(data, URN, new_name, SchoolNameColumn = "School name", URNColumn = 'URN'){
   if(length(URN) != length(new_name)){
     stop('URN and new_name have different lengths!')
@@ -213,27 +217,67 @@ update_school_name <- function(data, URN, new_name, SchoolNameColumn = "School n
 }
 
 #' @rdname add_student_to_school_class
-update_class_teacher <- function(data, URN, class_name, first_name, last_name,  new_name = paste0(first_name, ' ', last_name),
-                                 SchoolNameColumn = "School name", URNColumn = 'URN', ClassNameColumn = "Class Name",
-                                 TeacherColumn = 'Main Teacher Name',
-                                 TeacherFNColumn = "Main Teacher First Name", TeacherLNColumn = "Main Teacher Last Name",
-                                 verbose = F){
-  if(is.na(class_name)){
-    index = which(data[[URNColumn]] == URN)
-  }else{
-    index = which(data[[URNColumn]] == URN & data[[ClassNameColumn]] == class_name)
+#' @export
+update_class_teacher <- function(data,
+                                 URN,
+                                 class_name,
+                                 first_name,
+                                 last_name,
+                                 new_name = paste0(first_name, " ", last_name),
+                                 SchoolNameColumn = "School name",
+                                 URNColumn = "URN",
+                                 ClassNameColumn = "Class Name",
+                                 TeacherColumn = "Main Teacher Name",
+                                 TeacherFNColumn = "Main Teacher First Name",
+                                 TeacherLNColumn = "Main Teacher Last Name",
+                                 overwrite = TRUE,
+                                 verbose = FALSE) {
+  # Identify the relevant rows
+  if (is.na(class_name)) {
+    index <- which(data[[URNColumn]] == URN)
+  } else {
+    index <- which(data[[URNColumn]] == URN & data[[ClassNameColumn]] == class_name)
   }
-  # data[index,] |> View()
-  if(verbose) cli::cli_inform(paste0('Updated class teacher for ', length(index), ' students'))
-
-  if(TeacherColumn %in% names(data))   data[[TeacherColumn]][index] = new_name
-  if(TeacherFNColumn %in% names(data))   data[[TeacherFNColumn]][index] = first_name
-  if(TeacherLNColumn %in% names(data))   data[[TeacherLNColumn]][index] = last_name
-
+  
+  if (verbose) {
+    cli::cli_inform(paste0("Found ", length(index), " students for update."))
+  }
+  
+  # Overwrite mode (default)
+  if (overwrite) {
+    if (TeacherColumn %in% names(data)) data[[TeacherColumn]][index] <- new_name
+    if (TeacherFNColumn %in% names(data)) data[[TeacherFNColumn]][index] <- first_name
+    if (TeacherLNColumn %in% names(data)) data[[TeacherLNColumn]][index] <- last_name
+    
+    if (verbose) {
+      cli::cli_inform(paste0("Updated class teacher for ", length(index), " students."))
+    }
+  } else {
+    # Duplicate mode
+    if (length(index) == 0) {
+      warning("No matching rows found to duplicate.")
+      return(data)
+    }
+    
+    new_rows <- data[index, , drop = FALSE]
+    
+    if (TeacherColumn %in% names(new_rows)) new_rows[[TeacherColumn]] <- new_name
+    if (TeacherFNColumn %in% names(new_rows)) new_rows[[TeacherFNColumn]] <- first_name
+    if (TeacherLNColumn %in% names(new_rows)) new_rows[[TeacherLNColumn]] <- last_name
+    
+    data <- rbind(data, new_rows)
+    
+    if (verbose) {
+      cli::cli_inform(paste0("Added ", nrow(new_rows), " new rows with updated teacher information."))
+    }
+  }
+  
   data
 }
 
+
 #' @rdname add_student_to_school_class
+#' @export
 remove_class <- function(data, URN, class_name,
                          URNColumn = 'URN',
                          ClassNameColumn = "Class Name",
@@ -265,6 +309,7 @@ remove_class <- function(data, URN, class_name,
 
 
 #' @rdname add_student_to_school_class
+#' @export
 remove_student_from_class <- function(data, URN, student_id, class_name, URNColumn = 'URN',
                                       ClassNameColumn = "Class Name",  StudentIDColumn = "StudentId",  verbose = F){
   required_cols <- c(URNColumn, ClassNameColumn, StudentIDColumn)
