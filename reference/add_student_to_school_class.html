@@ -120,7 +120,8 @@ URN, first name, and last name.</p>
 <span>  TeacherColumn <span class="op">=</span> <span class="st">"Main Teacher Name"</span>,</span>
 <span>  TeacherFNColumn <span class="op">=</span> <span class="st">"Main Teacher First Name"</span>,</span>
 <span>  TeacherLNColumn <span class="op">=</span> <span class="st">"Main Teacher Last Name"</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">F</span></span>
+<span>  overwrite <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">remove_class</span><span class="op">(</span></span>
@@ -238,6 +239,10 @@ URN, first name, and last name.</p>
 
 <dt id="arg-new-name">new_name<a class="anchor" aria-label="anchor" href="#arg-new-name"></a></dt>
 <dd><p>the new school/class/teacher (first + last) name to be added to the class list.</p></dd>
+
+
+<dt id="arg-overwrite">overwrite<a class="anchor" aria-label="anchor" href="#arg-overwrite"></a></dt>
+<dd><p>Whether the changes overwrite the current values in the data or whether the subsection with changes is appended onto the data.</p></dd>
 
 
 <dt id="arg-student-id">student_id<a class="anchor" aria-label="anchor" href="#arg-student-id"></a></dt>
