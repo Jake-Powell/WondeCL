@@ -28,6 +28,8 @@
 #' includes an attribute named `"issue_list"`, which records any schools
 #' where fallback rules were applied.
 #'
+#' @family raw_clean
+#'
 #' @export
 filter_WondeData <- function(
     WondeData,
@@ -151,6 +153,8 @@ filter_WondeData <- function(
 #' )
 #' }
 #'
+#' @family raw_clean
+#
 #' @export
 filter_primary_WondeData <- function(WondeData,
                                      years = c("0", "R", "Reception"),
@@ -198,6 +202,8 @@ filter_primary_WondeData <- function(WondeData,
 #'   subject_names = c("Maths", "Mathematics", "Ma")
 #' )
 #' }
+#'
+#' @family raw_clean
 #'
 #' @export
 filter_secondary_WondeData <- function(WondeData,

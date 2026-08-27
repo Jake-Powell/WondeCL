@@ -39,6 +39,7 @@
 #'
 #' Note that these manual edits should be performed prior to adding student ids, withdrawing students or adding blanks (with the exception of remove_student_from_class() which requires some level of student ID to remove students).
 #'
+#' @family class_list
 #'
 #' @export
 #'
@@ -424,6 +425,8 @@ remove_student_from_class <- function(data, URN, student_id, class_name, URNColu
 #' @seealso
 #' [rbind_aggro()] for combining multiple data frames safely.
 #'
+#' @family class_list
+#'
 #' @export
 create_school_blanks <- function(schools_with_size,
                                  numbering_type = 'school',
@@ -585,6 +588,8 @@ create_school_blanks <- function(schools_with_size,
 #' If no student or multiple students match, a warning is issued and
 #' no changes are made.
 #'
+#' @family withdraw
+#'
 #' @export
 withdraw_student_from_school_class <- function(data,
                                                URN,
@@ -675,6 +680,8 @@ withdraw_student_from_school_class <- function(data,
 #'   URNs = 123456
 #' )
 #' }
+#'
+#' @family class_list
 #'
 #' @export
 remove_school_from_class_list <- function(data,

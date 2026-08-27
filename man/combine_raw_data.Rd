@@ -56,3 +56,8 @@ class_list <- extract_class_list(WondeData = combined_raw, ...)
 }
 
 }
+\seealso{
+Other utils: 
+\code{\link{clean_name}()}
+}
+\concept{utils}

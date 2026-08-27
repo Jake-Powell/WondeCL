@@ -39,3 +39,9 @@ updated_class_list <- revert_ignored_withdrawals(class_list, withdraw)
 }
 
 }
+\seealso{
+Other withdrawing: 
+\code{\link{apply_withdrawal}()},
+\code{\link{clear_withdrawn_student_data}()}
+}
+\concept{withdrawing}

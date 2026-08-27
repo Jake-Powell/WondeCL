@@ -227,5 +227,7 @@ create_WondeData_template <- function() {
   )
 }
 
+WondeData_template = create_WondeData_template()
+
 # To add this dataset to your package:
-# usethis::use_data(create_WondeData_template(), name = "WondeData_template", overwrite = TRUE)
+usethis::use_data(WondeData_template, overwrite = TRUE)

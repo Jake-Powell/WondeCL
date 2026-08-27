@@ -9,3 +9,7 @@ navbar:
     right: [search, github, lightswitch]
 
 
+reference:
+  - title: "Withdrawing functions"
+    contents:
+      - starts_with("withdrawing-")

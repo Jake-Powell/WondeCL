@@ -37,6 +37,8 @@
 #'
 #' @seealso [httr2::req_perform()], [jsonlite::fromJSON()]
 #'
+#' @family wonde
+#' 
 #' @export
 get_query <- function(url_path, filter = "", KEY = "") {
   carry_on <- TRUE
@@ -170,6 +172,8 @@ get_query <- function(url_path, filter = "", KEY = "") {
 #' @seealso
 #' \code{\link{get_query}}, \code{\link{convert_list_element_to_df}}
 #'
+#' @family wonde
+#' 
 #' @export
 get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE) {
   # Helper for conditional messages
@@ -291,6 +295,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
 
 
 #' @rdname get_primary_school_student_data
+#' @export
 get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRUE) {
   # Helper for messages
   vcat <- function(...) if (verbose) message(...)
@@ -419,6 +424,9 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
 #' }
 #'
 #' @seealso [WondeCL::get_query()] for the underlying query function.
+#' 
+#' @family wonde
+#' 
 #' @export
 get_schools <- function(KEY = "") {
   # ----------------------------------------------------------

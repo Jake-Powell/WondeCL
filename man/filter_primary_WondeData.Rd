@@ -39,3 +39,9 @@ reception_data <- filter_primary_WondeData(
 }
 
 }
+\seealso{
+Other raw_clean: 
+\code{\link{filter_WondeData}()},
+\code{\link{filter_secondary_WondeData}()}
+}
+\concept{raw_clean}

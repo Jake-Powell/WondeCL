@@ -197,6 +197,7 @@ convert_list_element_to_df <- function(data, column_to_unnest) {
 #' class_list <- extract_class_list(WondeData = combined_raw, ...)
 #' }
 #'
+#' @family utils
 #' @export
 combine_raw_data <- function(a, b) {
   for (i in seq_along(b)) {
@@ -212,6 +213,8 @@ combine_raw_data <- function(a, b) {
 #' @param rm_whit Flag (TRUE/FALSE) for whether whitespace wants to be removed from the names
 #'
 #' @return cleaned name
+#' @family utils
+#' 
 #' @export
 #'
 #' @examples

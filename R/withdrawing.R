@@ -1,46 +1,104 @@
 #' Apply withdrawn status to class list
 #'
-#' Matches withdrawn students (from a parent or guardian withdrawal spreadsheet)
-#' to the corresponding students in a class list and marks them as withdrawn.
+#' Matches students in a withdrawal list to pupils in a class list and marks them as withdrawn.
 #'
-#' The function attempts to find each withdrawn student within the provided
-#' class_list by matching on school name, first name, last name, and where
-#' available, date of birth. It handles various date formats and normalizes name
-#' casing and punctuation to ensure robust matching.
+#' Two internal matching strategies are supported:
 #'
-#' Matching is performed in this priority order:
-#' 1. Exact first and last name match
-#' 2. Partial first or last name match
-#' 3. Partial match on both names
-#' 4. First name and DoB match
-#' 5. Exact surname match only
+#' **1. School + DoB matching (legacy approach)** — for older withdrawal data without
+#' establishment identifiers. Matches using school name + cleaned first/surname + optional DoB
+#' resolution, using a layered fallback priority.
 #'
-#' The school name matching is handled by the internal function
-#' `.match_school_name()`.
+#' **2. EstablishmentID matching (current approach)** — for newer data where withdrawal
+#' records contain an establishment/school identifier column instead of DoB.
 #'
-#' @param class_list Data frame of class membership data.
-#' @param withdrawn_students Data frame of withdrawal form responses, or path to
-#'   an Excel file containing them.
-#' @param school_link Path to the school reference list Excel file.
-#' @param links_category Character vector of categories (for example "Primary")
-#'   to filter the reference school list.
-#' @param expected_years Numeric vector of expected birth years to validate DoBs.
-#' @param do_log Logical; if TRUE, a log file ("Withdrawn_students.log") will be written.
+#' The user controls routing using `school_dob_match`.
 #'
-#' @return
-#' A list with two elements:
-#' * class_list: Updated version of the input class list with a Withdrawn? column.
-#' * withdraw: Data frame of withdrawal records, including match details and indices.
+#' @param class_list Data frame of class list data
+#' @param withdrawn_students Data frame or file path to XLSX withdrawal data
+#' @param school_dob_match Logical; if `TRUE` route to legacy school+DoB method,
+#'   if `FALSE` route to EstablishmentID method
 #'
-#' @seealso .match_school_name(), .process_withdrawn_dob()
+#' ---- **LEGACY PARAMETERS (School + DoB method only):** ----
+#' @param legacy_school_link Path to school reference list Excel file
+#' @param links_category School category filter (e.g., "Primary")
+#' @param expected_years Valid birth years to validate parsed DoBs
+#' @param do_log Logical; if TRUE writes log file `Withdrawn_students.log`
 #'
+#' ---- **CURRENT PARAMETERS (EstablishmentID method only):** ----
+#' @param keep_grep Regex used to filter valid withdrawals
+#' @param TypeOfWithdrawalColumn Column name describing withdrawal status/type
+#' @param FirstNameColumn Column name for child first name
+#' @param LastNameColumn Column name for child surname
+#' @param EstablishmentIDColumn Column containing establishment ID in withdrawal data
+#' @param CLEstablishmentIDColumn Column containing establishment ID in class_list
+#'
+#' @param ... Additional arguments passed downstream to internal methods
+#'
+#' @return List containing updated class list and withdrawal match metadata
+#' @family withdrawing
 #' @export
-apply_withdrawn <- function(class_list,
-                            withdrawn_students,
-                            school_link = "~/Wonde/Establishment_List_ID.xlsx",
-                            links_category = "Primary",
-                            expected_years = c(2019, 2020),
-                            do_log = FALSE) {
+apply_withdrawal <- function(
+    class_list,
+    withdrawn_students,
+    
+    # routing flag
+    school_dob_match = TRUE,
+    
+    # legacy args:
+    legacy_school_link = "~/Wonde/Establishment_List_ID.xlsx",
+    links_category = "Primary",
+    expected_years = c(2019, 2020),
+    do_log = FALSE,
+    
+    # current args:
+    keep_grep = 'I want to withdraw my child from the study|No, please delete any previous data about my child',
+    TypeOfWithdrawalColumn = 'Type of withdrawal',
+    FirstNameColumn = "Your child's first name",
+    LastNameColumn = "Your child's surname",
+    EstablishmentIDColumn = "EstablishmentID",
+    CLEstablishmentIDColumn = EstablishmentIDColumn,
+    
+    ...
+) {
+  
+  if (school_dob_match) {
+    message("Routing to internal legacy (school + DoB) method")
+    
+    return(.apply_withdrawal_old(
+      class_list = class_list,
+      withdrawn_students = withdrawn_students,
+      school_link = legacy_school_link,
+      links_category = links_category,
+      expected_years = expected_years,
+      do_log = do_log,
+      ...
+    ))
+    
+  } else {
+    message("Routing to internal current (EstablishmentID) method")
+    
+    return(.apply_withdrawal_new(
+      class_list = class_list,
+      withdrawn_students = withdrawn_students,
+      keep_grep = keep_grep,
+      TypeOfWithdrawalColumn = TypeOfWithdrawalColumn,
+      FirstNameColumn = FirstNameColumn,
+      LastNameColumn = LastNameColumn,
+      EstablishmentIDColumn = EstablishmentIDColumn,
+      CLEstablishmentIDColumn = CLEstablishmentIDColumn,
+      ...
+    ))
+  }
+}
+
+
+
+.apply_withdrawal_old  <- function(class_list,
+                                  withdrawn_students,
+                                  school_link = "~/Wonde/Establishment_List_ID.xlsx",
+                                  links_category = "Primary",
+                                  expected_years = c(2019, 2020),
+                                  do_log = FALSE) {
   
   if (do_log) logr::log_open("Withdrawn_students.log")
   
@@ -98,7 +156,6 @@ apply_withdrawn <- function(class_list,
   
   # 6. Loop through each withdrawn student
   for (i in seq_len(nrow(withdraw))) {
-    print(i)
     if (do_log) {
       logr::log_print("Current withdrawal:")
       logr::log_print(withdraw[i, ])
@@ -242,6 +299,172 @@ apply_withdrawn <- function(class_list,
   list(class_list = class_list, withdraw = withdraw)
 }
 
+
+
+
+.apply_withdrawal_new  <- function(class_list,
+                                  withdrawn_students,
+                                  keep_grep = 'I want to withdraw my child from the study|No, please delete any previous data about my child',
+                                  TypeOfWithdrawalColumn = 'Type of withdrawal',
+                                  FirstNameColumn = "Your child's first name",
+                                  LastNameColumn = "Your child's surname",
+                                  EstablishmentIDColumn = "EstablishmentID",
+                                  CLEstablishmentIDColumn = EstablishmentIDColumn) {
+  
+  # 1. Read and filter withdrawn students (if file path given)
+  if (is.character(withdrawn_students)) {
+    withdrawn_students = readxl::read_xlsx(withdrawn_students) |> as.data.frame()
+  }
+  if (any(grepl(keep_grep, withdrawn_students[[TypeOfWithdrawalColumn]]))) {
+    withdrawn_students = withdrawn_students[grepl(keep_grep, withdrawn_students[[TypeOfWithdrawalColumn]]), ]
+  }
+  
+  # 2. Prepare withdrawn student name and school data
+  firstName <- withdrawn_students[[FirstNameColumn]] |>
+    toupper() |>
+    stringr::str_replace_all("-", " ") |>
+    stringi::stri_trans_general(id = "Latin-ASCII")
+  
+  lastName <- withdrawn_students[[LastNameColumn]] |>
+    toupper() |>
+    stringr::str_replace_all("-", " ") |>
+    stringi::stri_trans_general(id = "Latin-ASCII")
+  
+  
+  withdraw <- data.frame(firstName, lastName, DoB = NA, EstablishmentID = withdrawn_students[[EstablishmentIDColumn]])
+  
+  
+  # 5. Prepare output class list and tracking variables
+  class_list$`Withdrawn?` <- rep("", nrow(class_list))
+  if (!"Print ID" %in% names(class_list)) class_list$`Print ID` <- ""
+  if (!"OME_ID" %in% names(class_list)) class_list$OME_ID <- ""
+  
+  match_desc <- rep(NA, nrow(withdraw))
+  school_look <- rep(NA, nrow(withdraw))
+  classListIndex <- rep(NA, nrow(withdraw))
+  matchedFirstName <- rep(NA, nrow(withdraw))
+  matchedLastName <- rep(NA, nrow(withdraw))
+  matchedSchoolName <- rep(NA, nrow(withdraw))
+  
+  # 6. Loop through each withdrawn student
+  for (i in seq_len(nrow(withdraw))) {
+    
+    cur <- withdraw[i, ]
+    
+    potent_index <- which(class_list[[CLEstablishmentIDColumn]] %in% cur$EstablishmentID)
+    potent <- class_list[potent_index, ]
+    
+    # Helper to fill match details locally
+    apply_match <- function(match_index, desc) {
+      list(
+        match_desc = desc,
+        classListIndex = potent_index[match_index],
+        matchedFirstName = potent$`Pupil First Name`[match_index],
+        matchedLastName = potent$`Pupil Last Name`[match_index],
+        matchedSchoolName = potent$`School name`[match_index],
+        withdrawn_index = potent_index[match_index]
+      )
+    }
+    
+    matched <- NULL
+    
+    # 1. Exact first + last
+    match_index <- which(
+      cur$firstName == toupper(potent$`Pupil First Name`) &
+        cur$lastName == toupper(potent$`Pupil Last Name`)
+    )
+    if (length(match_index) == 1) {
+      matched <- apply_match(match_index, "Exact first and last name match (to one student)")
+    } else if (length(match_index) > 1) {
+      match_desc[i] <- "Multiple first and last name match, do not remove any"
+      next
+    }
+    
+    # 2. Partial first name + exact last
+    if (is.null(matched)) {
+      withdraw_FN_parts <- stringr::str_split(cur$firstName, " ") |> unlist()
+      match_index <- which(
+        grepl(paste(withdraw_FN_parts, collapse = "|"),
+              toupper(potent$`Pupil First Name`) |> stringr::str_replace_all("-", " ")) &
+          cur$lastName == toupper(potent$`Pupil Last Name`)
+      )
+      if (length(match_index) == 1) {
+        matched <- apply_match(match_index, "Partial first name, exact surname (to one student)")
+      }
+    }
+    
+    # 3. Partial last name + exact first
+    if (is.null(matched)) {
+      withdraw_LN_parts <- stringr::str_split(cur$lastName, " ") |> unlist()
+      match_index <- which(
+        grepl(paste(withdraw_LN_parts, collapse = "|"),
+              toupper(potent$`Pupil Last Name`) |> stringr::str_replace_all("-", " ")) &
+          cur$firstName == toupper(potent$`Pupil First Name`)
+      )
+      if (length(match_index) == 1) {
+        matched <- apply_match(match_index, "Partial last name, exact first name (to one student)")
+      }
+    }
+    
+    # 4. Partial both
+    if (is.null(matched)) {
+      match_index <- which(
+        grepl(paste(withdraw_LN_parts, collapse = "|"),
+              toupper(potent$`Pupil Last Name`) |> stringr::str_replace_all("-", " ")) &
+          grepl(paste(withdraw_FN_parts, collapse = "|"),
+                toupper(potent$`Pupil First Name`) |> stringr::str_replace_all("-", " "))
+      )
+      if (length(match_index) == 1) {
+        matched <- apply_match(match_index, "Partial last name, partial first name (to one student)")
+      }
+    }
+    
+    # 5. First name + DoB
+    if (is.null(matched) && !is.na(cur$DoB) && "DoB" %in% names(potent)) {
+      match_index <- which(
+        cur$firstName == toupper(potent$`Pupil First Name`) &
+          cur$DoB == potent$DoB
+      )
+      if (length(match_index) == 1) {
+        matched <- apply_match(match_index, "Exact first name, DoB match (to one student)")
+      } else if (length(match_index) > 1) {
+        match_desc[i] <- "Multiple first name match, DoB match, do not remove any"
+        next
+      }
+    }
+    
+    # 6. Surname only
+    if (is.null(matched)) {
+      match_index <- which(cur$lastName == toupper(potent$`Pupil Last Name`))
+      if (length(match_index) == 1) {
+        matched <- apply_match(match_index, "Exact match surname only (to one student)")
+      }
+    }
+    
+    # Apply match if found
+    if (!is.null(matched)) {
+      match_desc[i] <- matched$match_desc
+      classListIndex[i] <- matched$classListIndex
+      matchedFirstName[i] <- matched$matchedFirstName
+      matchedLastName[i] <- matched$matchedLastName
+      matchedSchoolName[i] <- matched$matchedSchoolName
+      class_list$`Withdrawn?`[matched$withdrawn_index] <- "Y"
+    } else {
+      match_desc[i] <- "Student not found in class list"
+    }
+  }
+  
+  
+  withdraw$MatchDetail <- match_desc
+  withdraw$SchoolCheck <- school_look
+  withdraw$classListIndex <- classListIndex
+  withdraw$matchedFirstName <- matchedFirstName
+  withdraw$matchedLastName <- matchedLastName
+  withdraw$matchedSchoolName <- matchedSchoolName
+  withdraw$IgnoreResult <- NA
+  
+  list(class_list = class_list, withdraw = withdraw)
+}
 
 
 #' @title Process and standardise withdrawn student date of birth information
@@ -466,6 +689,8 @@ apply_withdrawn <- function(class_list,
 #' updated_class_list <- revert_ignored_withdrawals(class_list, withdraw)
 #' }
 #'
+#' @family withdrawing
+#' 
 #' @export
 revert_ignored_withdrawals <- function(class_list, withdraw) {
   if (!"IgnoreResult" %in% names(withdraw) || !"classListIndex" %in% names(withdraw)) {
@@ -525,6 +750,8 @@ revert_ignored_withdrawals <- function(class_list, withdraw) {
 #' updated_class_list <- clear_withdrawn_student_data(class_list)
 #' }
 #'
+#' @family withdrawing
+#' 
 #' @export
 clear_withdrawn_student_data <- function(data,
                                          WithdrawColumn = "Withdrawn?",

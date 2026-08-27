@@ -25,3 +25,8 @@ Clean names
  clean_name('Pierre-Joseph Redouté')
 
 }
+\seealso{
+Other utils: 
+\code{\link{combine_raw_data}()}
+}
+\concept{utils}

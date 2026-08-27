@@ -49,4 +49,9 @@ if (!is.null(employees)) {
 }
 \seealso{
 [httr2::req_perform()], [jsonlite::fromJSON()]
+
+Other wonde: 
+\code{\link{get_primary_school_student_data}()},
+\code{\link{get_schools}()}
 }
+\concept{wonde}

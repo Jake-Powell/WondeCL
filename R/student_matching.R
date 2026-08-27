@@ -137,7 +137,7 @@ add_student_ids_from_previous <- function(new_class_list,
           method = method,
           show_all_fuzzy = FALSE
         )
-        
+        if(out$UPI |> length() == 0){out$UPI = 'MULTIPLE'}
         old_FN <- out$people[[FN_column]][1]
         old_LN <- out$people[[LN_column]][1]
         old_DoB <- if (DoB_column %in% names(out$people))
@@ -179,6 +179,7 @@ add_student_ids_from_previous <- function(new_class_list,
         }
       }
     })
+    
     
     match_df <- do.call(rbind, lapply(match_rows, function(x)
       data.frame(Student_ID = x$ID, MatchMethod = x$msg,

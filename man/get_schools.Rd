@@ -32,4 +32,9 @@ schools <- get_schools(KEY = "your_api_key_here")
 }
 \seealso{
 [WondeCL::get_query()] for the underlying query function.
+
+Other wonde: 
+\code{\link{get_primary_school_student_data}()},
+\code{\link{get_query}()}
 }
+\concept{wonde}

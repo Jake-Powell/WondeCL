@@ -107,4 +107,9 @@ head(blanks)
 }
 \seealso{
 [rbind_aggro()] for combining multiple data frames safely.
+
+Other class_list: 
+\code{\link{add_student_to_school_class}()},
+\code{\link{remove_school_from_class_list}()}
 }
+\concept{class_list}

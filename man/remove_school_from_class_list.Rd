@@ -63,3 +63,9 @@ updated_class_list <- remove_school_from_class_list(
 }
 
 }
+\seealso{
+Other class_list: 
+\code{\link{add_student_to_school_class}()},
+\code{\link{create_school_blanks}()}
+}
+\concept{class_list}

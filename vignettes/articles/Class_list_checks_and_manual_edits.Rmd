@@ -1,0 +1,43 @@
+---
+title: "Class list checks and manual edits"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(WondeCL)
+```
+
+*This article explains how to perform sanity checks on a class list and make manual changes to it.*
+
+First lets load an example class list
+
+```{r}
+class_list = WondeCL::class_list_example
+
+class_list |> DT::datatable(options = list(pageLength = 5))
+
+```
+
+By manually looking at the class list we see that there are:
+
+- 2 Schools
+- 3 classes
+- 60 students
+
+# Class list checks
+
+Firstly, we will perform some class list checks for whether students belong to multiple classes or no classes at all.
+
+```{r}
+class_list |> WondeCL::detect_multiple_class_memberships()
+
+class_list |> WondeCL::detect_students_missing_class()
+
+WondeCL::clean_class_names()
+```

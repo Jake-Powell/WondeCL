@@ -80,4 +80,9 @@ names(secondary_data)
 }
 \seealso{
 \code{\link{get_query}}, \code{\link{convert_list_element_to_df}}
+
+Other wonde: 
+\code{\link{get_query}()},
+\code{\link{get_schools}()}
 }
+\concept{wonde}

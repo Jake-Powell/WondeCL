@@ -243,3 +243,10 @@ df_new |> remove_student_from_class(URN = '123456',
                                     student_id = student_rm)
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other class_list: 
+\code{\link{create_school_blanks}()},
+\code{\link{remove_school_from_class_list}()}
+}
+\concept{class_list}
+\concept{withdraw}
