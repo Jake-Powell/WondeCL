@@ -369,11 +369,15 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   students_group <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
                               filter = "&include=groups&include=groups.employees", KEY = KEY)
   if (!is.null(students_group)) {
+    
     students_group <- students_group |>
       convert_list_element_to_df(column_to_unnest = "groups.data") |>
-      tidyr::unnest(groups.data, names_sep = "__", keep_empty = TRUE) |>
-      convert_list_element_to_df(column_to_unnest = "groups.data__employees.data") |>
-      tidyr::unnest(groups.data__employees.data, names_sep = "__", keep_empty = TRUE)
+      tidyr::unnest(groups.data, names_sep = "__", keep_empty = TRUE) 
+    if("groups.data__employees.data" %in% names(students_group)){
+      students_group = students_group |>
+        convert_list_element_to_df(column_to_unnest = "groups.data__employees.data") |>
+        tidyr::unnest(groups.data__employees.data, names_sep = "__", keep_empty = TRUE)
+    }
     students_group <- cbind(school, students_group)
   }
   
