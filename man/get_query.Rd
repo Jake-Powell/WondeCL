@@ -4,14 +4,14 @@
 \alias{get_query}
 \title{Pull from Wonde API (with error handling)}
 \usage{
-get_query(url_path, filter = "", KEY = "")
+get_query(url_path, filter = "", token = NULL)
 }
 \arguments{
 \item{url_path}{The API endpoint to query.}
 
 \item{filter}{Additional parameters to include in the request (e.g., `&include=groups`).}
 
-\item{KEY}{The Wonde API access token.}
+\item{token}{The Wonde API access token.}
 }
 \value{
 A combined `data.frame` of the pulled information if data are returned,
@@ -34,11 +34,11 @@ gracefully skip processing.
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 school_id <- "Enter_ID_here"
-KEY <- "Enter_KEY_here"
+token <- "Enter_token_here"
 
 # Employee information
 url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/")
-employees <- get_query(url_path, filter = '&include=groups', KEY = KEY)
+employees <- get_query(url_path, filter = '&include=groups', token = token)
 
 if (!is.null(employees)) {
   employees_groups <- employees |>
