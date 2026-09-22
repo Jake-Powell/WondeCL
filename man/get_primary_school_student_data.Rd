@@ -5,14 +5,14 @@
 \alias{get_secondary_school_student_data}
 \title{Retrieve School Student and Staff Data from Wonde API}
 \usage{
-get_primary_school_student_data(school_id, KEY = "", verbose = TRUE)
+get_primary_school_student_data(school_id, token = NULL, verbose = TRUE)
 
-get_secondary_school_student_data(school_id, KEY = "", verbose = TRUE)
+get_secondary_school_student_data(school_id, token = NULL, verbose = TRUE)
 }
 \arguments{
 \item{school_id}{Character string giving the Wonde school ID.}
 
-\item{KEY}{Character string; the Wonde API key used for authentication.}
+\item{token}{Character string; the Wonde API token used for authentication.}
 
 \item{verbose}{Logical; if TRUE (default), prints progress messages
 to the console as data are fetched.}
@@ -63,13 +63,13 @@ Any missing or NULL components are removed automatically before returning.
 # Primary school data
 primary_data <- get_primary_school_student_data(
   school_id = "A123456789",
-  KEY = Sys.getenv("WONDE_API_KEY")
+  token = Sys.getenv("WONDE_API_KEY")
 )
 
 # Secondary school data
 secondary_data <- get_secondary_school_student_data(
   school_id = "B987654321",
-  KEY = Sys.getenv("WONDE_API_KEY")
+  token = Sys.getenv("WONDE_API_KEY")
 )
 
 # Check available data sets

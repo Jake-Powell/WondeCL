@@ -7,7 +7,7 @@
 #'
 #' @param url_path The API endpoint to query.
 #' @param filter Additional parameters to include in the request (e.g., `&include=groups`).
-#' @param KEY The Wonde API access token.
+#' @param token The Wonde API access token.
 #'
 #' @return
 #' A combined `data.frame` of the pulled information if data are returned,
@@ -23,11 +23,11 @@
 #'
 #' @examplesIf FALSE
 #' school_id <- "Enter_ID_here"
-#' KEY <- "Enter_KEY_here"
+#' token <- "Enter_token_here"
 #'
 #' # Employee information
 #' url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/")
-#' employees <- get_query(url_path, filter = '&include=groups', KEY = KEY)
+#' employees <- get_query(url_path, filter = '&include=groups', token = token)
 #'
 #' if (!is.null(employees)) {
 #'   employees_groups <- employees |>
@@ -40,7 +40,7 @@
 #' @family wonde
 #' 
 #' @export
-get_query <- function(url_path, filter = "", KEY = "") {
+get_query <- function(url_path, filter = "", token = NULL) {
   carry_on <- TRUE
   page <- 1
   data_all <- list()
@@ -51,7 +51,7 @@ get_query <- function(url_path, filter = "", KEY = "") {
     # Safely perform the request
     res <- tryCatch({
       req <- httr2::request(url_use) |>
-        httr2::req_auth_basic(username = KEY, password = "") |>
+        httr2::req_auth_basic(username = check_token(token), password = "") |>
         httr2::req_perform()
       
       # Check for HTTP error codes
@@ -113,7 +113,7 @@ get_query <- function(url_path, filter = "", KEY = "") {
 #' subjects, and groups. Both functions now include education details.
 #'
 #' @param school_id Character string giving the Wonde school ID.
-#' @param KEY Character string; the Wonde API key used for authentication.
+#' @param token Character string; the Wonde API token used for authentication.
 #' @param verbose Logical; if TRUE (default), prints progress messages
 #' to the console as data are fetched.
 #'
@@ -155,13 +155,13 @@ get_query <- function(url_path, filter = "", KEY = "") {
 #' # Primary school data
 #' primary_data <- get_primary_school_student_data(
 #'   school_id = "A123456789",
-#'   KEY = Sys.getenv("WONDE_API_KEY")
+#'   token = Sys.getenv("WONDE_API_KEY")
 #' )
 #'
 #' # Secondary school data
 #' secondary_data <- get_secondary_school_student_data(
 #'   school_id = "B987654321",
-#'   KEY = Sys.getenv("WONDE_API_KEY")
+#'   token = Sys.getenv("WONDE_API_KEY")
 #' )
 #'
 #' # Check available data sets
@@ -175,7 +175,7 @@ get_query <- function(url_path, filter = "", KEY = "") {
 #' @family wonde
 #' 
 #' @export
-get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE) {
+get_primary_school_student_data <- function(school_id, token = NULL, verbose = TRUE) {
   # Helper for conditional messages
   vcat <- function(...) if (verbose) message(...)
   
@@ -185,7 +185,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/")
   req <- tryCatch({
     httr2::request(url_path) |>
-      httr2::req_auth_basic(username = KEY, password = "") |>
+      httr2::req_auth_basic(username = check_token(token), password = "") |>
       httr2::req_perform()
   }, error = function(e) {
     message("Unable to retrieve school info for ", school_id)
@@ -208,7 +208,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   employees <- get_query(
     paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/"),
     filter = "&include=groups",
-    KEY = KEY
+    token = token
   )
   
   if (!is.null(employees) && nrow(employees) > 0) {
@@ -222,7 +222,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   student <- get_query(
     paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
     filter = "&include=year",
-    KEY = KEY
+    token = token
   )
   if (!is.null(student)) student <- cbind(school, student)
   
@@ -231,7 +231,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   students_classes <- get_query(
     paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
     filter = "&include=classes&include=classes.employees",
-    KEY = KEY
+    token = token
   )
   
   if (!is.null(students_classes)) {
@@ -253,7 +253,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   students_group <- get_query(
     paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
     filter = "&include=groups&include=groups.employees",
-    KEY = KEY
+    token = token
   )
   
   if (!is.null(students_group)) {
@@ -270,7 +270,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
   students_education <- get_query(
     paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
     filter = "&include=education_details",
-    KEY = KEY
+    token = token
   )
   if (!is.null(students_education)) {
     students_education <- cbind(school, students_education)
@@ -296,7 +296,7 @@ get_primary_school_student_data <- function(school_id, KEY = "", verbose = TRUE)
 
 #' @rdname get_primary_school_student_data
 #' @export
-get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRUE) {
+get_secondary_school_student_data <- function(school_id, token = NULL, verbose = TRUE) {
   # Helper for messages
   vcat <- function(...) if (verbose) message(...)
   
@@ -306,7 +306,7 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   url_path <- paste0("https://api.wonde.com/v1.0/schools/", school_id, "/")
   req <- tryCatch({
     httr2::request(url_path) |>
-      httr2::req_auth_basic(username = KEY, password = "") |>
+      httr2::req_auth_basic(username = check_token(token), password = "") |>
       httr2::req_perform()
   }, error = function(e) {
     message("Unable to retrieve school info for ", school_id)
@@ -327,7 +327,7 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   # --- EMPLOYEES ---
   vcat("[Employees]")
   employees <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/employees/"),
-                         filter = "&include=groups", KEY = KEY)
+                         filter = "&include=groups", token = token)
   if (!is.null(employees)) {
     employees <- employees |>
       convert_list_element_to_df(column_to_unnest = "groups.data") |>
@@ -337,14 +337,14 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   # --- STUDENTS ---
   vcat("[Students - basic info]")
   student <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
-                       filter = "&include=year", KEY = KEY)
+                       filter = "&include=year", token = token)
   if (!is.null(student)) student <- cbind(school, student)
   
   # --- STUDENTS + CLASSES ---
   vcat("[Students + Classes]")
   students_classes <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
                                 filter = "&include=classes&include=classes.subject&include=classes.employees",
-                                KEY = KEY)
+                                token = token)
   if (!is.null(students_classes)) {
     if ("classes.data" %in% names(students_classes)) {
       students_classes <- students_classes |>
@@ -362,12 +362,12 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   # --- SUBJECTS ---
   vcat("[Subjects]")
   subjects <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/subjects/"),
-                        KEY = KEY)
+                        token = token)
   
   # --- STUDENTS + GROUPS ---
   vcat("[Students + Groups]")
   students_group <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
-                              filter = "&include=groups&include=groups.employees", KEY = KEY)
+                              filter = "&include=groups&include=groups.employees", token = token)
   if (!is.null(students_group)) {
     
     students_group <- students_group |>
@@ -384,7 +384,7 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
   # --- EDUCATION DETAILS ---
   vcat("[Students + Education details]")
   students_education <- get_query(paste0("https://api.wonde.com/v1.0/schools/", school_id, "/students/"),
-                                  filter = "&include=education_details", KEY = KEY)
+                                  filter = "&include=education_details", token = token)
   if (!is.null(students_education)) {
     students_education <- cbind(school, students_education)
   }
@@ -410,7 +410,7 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
 #'
 #' Queries the Wonde API to retrieve information about all schools linked to your Wonde account.
 #'
-#' @param KEY Character string. Your Wonde API key. If not supplied, the function will attempt to use
+#' @param token Character string. Your Wonde API token. If not supplied, the function will attempt to use
 #'   the environment variable `WONDE_KEY`.
 #'
 #' @return A data frame or list of school information returned by the Wonde API.
@@ -419,12 +419,12 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
 #' @details
 #' This function is a wrapper around \code{WondeCL::get_query()}, specifically for retrieving
 #' school data from the Wonde API. It automatically constructs the appropriate endpoint
-#' and handles missing or invalid API keys.
+#' and handles missing or invalid API tokens.
 #'
 #' @examplesIf FALSE
 #' \dontrun{
 #' # Example usage
-#' schools <- get_schools(KEY = "your_api_key_here")
+#' schools <- get_schools(token = "your_api_token_here")
 #' }
 #'
 #' @seealso [WondeCL::get_query()] for the underlying query function.
@@ -432,16 +432,7 @@ get_secondary_school_student_data <- function(school_id, KEY = "", verbose = TRU
 #' @family wonde
 #' 
 #' @export
-get_schools <- function(KEY = "") {
-  # ----------------------------------------------------------
-  # 1. Check for API key
-  # ----------------------------------------------------------
-  if (KEY == "") {
-    KEY <- Sys.getenv("WONDE_KEY")
-    if (KEY == "") {
-      stop("No API key provided. Please supply a key via KEY argument or set the WONDE_KEY environment variable.")
-    }
-  }
+get_schools <- function(token = NULL) {
   
   # ----------------------------------------------------------
   # 2. Construct API endpoint
@@ -453,7 +444,7 @@ get_schools <- function(KEY = "") {
   # ----------------------------------------------------------
   result <- tryCatch(
     {
-      WondeCL::get_query(url_path, KEY = KEY)
+      WondeCL::get_query(url_path, token = check_token(token))
     },
     error = function(e) {
       cli::cli_alert_danger("Error retrieving data from Wonde API: {conditionMessage(e)}")

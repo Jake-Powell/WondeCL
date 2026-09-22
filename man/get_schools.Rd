@@ -4,10 +4,10 @@
 \alias{get_schools}
 \title{Retrieve school information from the Wonde API}
 \usage{
-get_schools(KEY = "")
+get_schools(token = NULL)
 }
 \arguments{
-\item{KEY}{Character string. Your Wonde API key. If not supplied, the function will attempt to use
+\item{token}{Character string. Your Wonde API token. If not supplied, the function will attempt to use
 the environment variable `WONDE_KEY`.}
 }
 \value{
@@ -20,13 +20,13 @@ Queries the Wonde API to retrieve information about all schools linked to your W
 \details{
 This function is a wrapper around \code{WondeCL::get_query()}, specifically for retrieving
 school data from the Wonde API. It automatically constructs the appropriate endpoint
-and handles missing or invalid API keys.
+and handles missing or invalid API tokens.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 \dontrun{
 # Example usage
-schools <- get_schools(KEY = "your_api_key_here")
+schools <- get_schools(token = "your_api_token_here")
 }
 \dontshow{\}) # examplesIf}
 }
