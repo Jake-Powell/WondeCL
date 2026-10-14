@@ -70,24 +70,27 @@ add_student_ids_from_previous <- function(new_class_list,
   )
   
   if (do_upn_match) {
+    ocl = old_class_list[!is.na(old_class_list[[UPN_column]]),]
+    ocl = old_class_list[which(!old_class_list[[UPN_column]] %in% c('', 'NA')),]
+    
     non_na_upn <- which(!is.na(new_class_list[[UPN_column]]) & new_class_list[[UPN_column]] != "")
     upn_match_index <- match(new_class_list[[UPN_column]][non_na_upn],
-                             old_class_list[[UPN_column]])
+                             ocl[[UPN_column]])
     valid <- non_na_upn[!is.na(upn_match_index)]
     
     new_class_list[[Student_ID_column]][valid] <-
-      old_class_list[[Student_ID_column]][upn_match_index[!is.na(upn_match_index)]]
+      ocl[[Student_ID_column]][upn_match_index[!is.na(upn_match_index)]]
     new_class_list$`Match Method`[valid] <- "UPN"
     
-    if (FN_column %in% names(old_class_list))
+    if (FN_column %in% names(ocl))
       new_class_list$`Old Pupil First Name`[valid] <-
-      old_class_list[[FN_column]][upn_match_index[!is.na(upn_match_index)]]
-    if (LN_column %in% names(old_class_list))
+      ocl[[FN_column]][upn_match_index[!is.na(upn_match_index)]]
+    if (LN_column %in% names(ocl))
       new_class_list$`Old Pupil Last Name`[valid] <-
-      old_class_list[[LN_column]][upn_match_index[!is.na(upn_match_index)]]
-    if (DoB_column %in% names(old_class_list))
+      ocl[[LN_column]][upn_match_index[!is.na(upn_match_index)]]
+    if (DoB_column %in% names(ocl))
       new_class_list$`Old DoB`[valid] <-
-      old_class_list[[DoB_column]][upn_match_index[!is.na(upn_match_index)]]
+      ocl[[DoB_column]][upn_match_index[!is.na(upn_match_index)]]
     
     if (verbose)
       cli::cli_inform(paste0("Matched ", length(valid), " students by UPN."))

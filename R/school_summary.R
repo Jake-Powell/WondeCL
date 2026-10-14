@@ -53,6 +53,36 @@ summarise_school_data <- function(
     year_codes_target = c("7", "Year 7", "07", "Year 07", "Y7", "Yr7", "Yr 7"),
     subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic", "Mathematics (Assessment+)")
 ) {
+  get_target_year_ids <- function(x) {
+    
+    # First preference: year code from student extract
+    if ("year.data.code" %in% names(x$student)) {
+      
+      ids <- x$student$id[
+        as.character(x$student$year.data.code) %in% year_codes_target
+      ]
+      
+      if (length(ids) > 0) {
+        return(unique(ids))
+      }
+    }
+    
+    # Fallback: educational details
+    if ("education_details.data.current_nc_year" %in% names(x$education_details)) {
+      
+      ids <- x$education_details$id[
+        as.character(x$education_details$education_details.data.current_nc_year) %in%
+          year_codes_target
+      ]
+      
+      if (length(ids) > 0) {
+        return(unique(ids))
+      }
+    }
+    
+    character(0)
+  }
+  
   WondeIds <- schools$id
   subject_keywords_upper <- toupper(subject_keywords)
 
@@ -81,10 +111,38 @@ summarise_school_data <- function(
     }
   })
   schools$HasTargetYear <- year_by_year[match(WondeIds, names(WondeData))]
+  
+  # 1. YEAR CODES (via educational details)
+  year_codes <- sapply(WondeData, function(x) {
+    if ("education_details.data.current_nc_year" %in% names(x$education_details)) {
+      val <- unique(sort(x$education_details$education_details.data.current_nc_year))
+      val <- paste0(val, collapse = "\n")
+      if (val == "") "No year coding available (in ed.details)" else val
+    } else {
+      "year data code not available in educational details"
+    }
+  })
+  schools$year_values_ed_details <- year_codes[match(WondeIds, names(WondeData))]
+  
+  # 2. YEAR DETECTION
+  year_by_year <- sapply(WondeData, function(x) {
+    cols <- names(x$education_details)
+    if ("education_details.data.current_nc_year" %in% cols) {
+      val <- unique(x$education_details$education_details.data.current_nc_year)
+      any((val |> as.character()) %in% year_codes_target)
+    } else if ("education_details.data.current_nc_year" %in% cols) {
+      any((x$education_details$education_details.data.current_nc_year |> as.character()) %in% year_codes_target)
+    } else {
+      FALSE
+    }
+  })
+  schools$HasTargetYear_ed_details <- year_by_year[match(WondeIds, names(WondeData))]
+  
+  
 
   # 3. SUBJECTS FOR TARGET YEAR
   subject_year_codes <- sapply(WondeData, function(x) {
-    ex_year_ids <- x$student$id[(x$student$year.data.code |> as.character()) %in% year_codes_target]
+    ex_year_ids <- get_target_year_ids(x)
     ex_class_year <- x$students_classes[x$students_classes$id %in% ex_year_ids, ]
     yr_subjects <- x$subjects$name[x$subjects$id %in% unique(ex_class_year$classes.data__subject)]
     val <- paste0(unique(sort(yr_subjects)), collapse = "\n")
@@ -94,7 +152,7 @@ summarise_school_data <- function(
 
   # 3. Group codes FOR TARGET YEAR
   group_year_codes <- sapply(WondeData, function(x) {
-    ex_year_ids <- x$student$id[(x$student$year.data.code |> as.character()) %in% year_codes_target]
+    ex_year_ids <- get_target_year_ids(x)
     ex_class_year <- x$students_group[x$students_group$id %in% ex_year_ids, ]
   yr_groups = ex_class_year$groups.data__name[ex_class_year$groups.data__type %in% 'REGISTRATION']
         val <- paste0(unique(sort(yr_groups)), collapse = "\n")
@@ -105,7 +163,7 @@ summarise_school_data <- function(
   
   # 4. SUBJECT DETECTION BY SUBJECT CODE
   subject_detected <- sapply(WondeData, function(x) {
-    ex_year_ids <- x$student$id[(x$student$year.data.code  |> as.character()) %in% year_codes_target]
+    ex_year_ids <- get_target_year_ids(x)
     ex_class_year <- x$students_classes[x$students_classes$id %in% ex_year_ids, ]
     yr_subjects <- x$subjects$name[x$subjects$id %in% unique(ex_class_year$classes.data__subject)]
     any(toupper(yr_subjects) %in% subject_keywords_upper)
@@ -114,7 +172,7 @@ summarise_school_data <- function(
 
   # 5. CLASS DESCRIPTIONS
   class_desc_year <- sapply(WondeData, function(x) {
-    ex_year_ids <- x$student$id[(x$student$year.data.code  |> as.character()) %in% year_codes_target]
+    ex_year_ids <- get_target_year_ids(x)
     yr_class_desc <- x$students_classes$classes.data__description[x$students_classes$id %in% ex_year_ids]
     val <- paste0(unique(sort(yr_class_desc)), collapse = "\n")
     if (val == "") "No class description available" else val

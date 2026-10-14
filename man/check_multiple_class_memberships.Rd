@@ -10,7 +10,7 @@ check_multiple_class_memberships(
   WondeData,
   year_codes_target = c("Year 7", "7", "Y7"),
   subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic"),
-  output_prefix = "Checking_subject_classes_overlap"
+  output_prefix = "Checking/subject_classes_overlap"
 )
 }
 \arguments{

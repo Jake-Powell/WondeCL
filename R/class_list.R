@@ -54,11 +54,28 @@ extract_class_list <- function(WondeData,
     }
     
     student <- school_data$student
-    yr_students <- student[grep(year_pattern, student$year.data.code), ]
+    
+    StudentId <- get_student_ids_target_year(
+      school_data,
+      year_codes_target = year_pattern,
+      type = "grepl"
+    )
+    
+    yr_students <- student[student$id %in% StudentId, ]
+    
     if (nrow(yr_students) == 0) {
-      warning("Index ", index, " (", URN_school, "): No students match year pattern '", year_pattern, "'.")
-      issue_list[nrow(issue_list) + 1, ] <<- c(index, URN_school, school_name,
-                                               paste0("No students matching year pattern ", year_pattern))
+      warning(
+        "Index ", index, " (", URN_school,
+        "): No students match year pattern '", year_pattern, "'."
+      )
+      
+      issue_list[nrow(issue_list) + 1, ] <<- c(
+        index,
+        URN_school,
+        school_name,
+        paste0("No students matching year pattern ", year_pattern)
+      )
+      
       return(NULL)
     }
     
@@ -108,9 +125,9 @@ extract_class_list <- function(WondeData,
       ]
       yr_class <- yr_class[yr_class$classes.data__subject %in% subject_ids, ]
       
-    } else if (isTRUE(school_info$GetSubjectByClassDescription)) {
+    } else if (isTRUE(school_info$GetSubjectByClassDescription |> as.logical())) {
       yr_class <- yr_class[
-        grep(paste0(maths_desc_names, collapse = "|"),
+        grep(paste0(toupper(maths_desc_names), collapse = "|"),
              toupper(yr_class$classes.data__description)), ]
       
     } else {

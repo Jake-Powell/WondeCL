@@ -258,7 +258,7 @@ check_multiple_class_memberships <- function(class_list_df,
                                            WondeData,
                                            year_codes_target = c("Year 7", "7", "Y7"),
                                            subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic"),
-                                           output_prefix = "Checking_subject_classes_overlap") {
+                                           output_prefix = "Checking/subject_classes_overlap") {
   # -------------------------------------------------------------------
   # 0. Prepare subject and year code filters
   # -------------------------------------------------------------------
@@ -278,16 +278,20 @@ check_multiple_class_memberships <- function(class_list_df,
   # -------------------------------------------------------------------
   class_breakdown <- lapply(seq_along(ids), function(index) {
     example <- WondeData[[ids[index]]]
-    ex_year_ids <- example$student$id[example$student$year.data.name %in% year_codes_target]
+    
+    ex_year_ids <- get_student_ids_target_year(example,year_codes_target = year_codes_target,type = "grep")
+    # ex_year_ids <- example$student$id[example$student$year.data.name %in% year_codes_target]
+    
     ex_class_year <- example$students_classes[example$students_classes$id %in% ex_year_ids, ]
     subject_ids <- example$subjects$id[toupper(example$subjects$name) %in% subject_upper]
     year_subject_classes <- ex_class_year[ex_class_year$classes.data__subject %in% subject_ids, ]
     
     class_stud <- year_subject_classes |>
-      dplyr::group_by(classes.data__name) |>
+      dplyr::group_by(classes.data__id, classes.data__name) |>
       dplyr::summarise(classes_desc = unique(classes.data__description),
                        size = length(unique(id)),
-                       students = paste0(unique(id), collapse = ", "))
+                       students = paste0(unique(id), collapse = ", "),
+                       teachers = classes.data__employees.data__id |> unique() |> paste0(collapse = ', '))
     
     # Calculate overlaps
     classes_sum <- rep(NA, nrow(class_stud))
@@ -305,6 +309,7 @@ check_multiple_class_memberships <- function(class_list_df,
   })
   names(class_breakdown) <- names_urn
   
+  class_breakdown <- class_breakdown[order(names(class_breakdown))]
   # -------------------------------------------------------------------
   # 3. Write initial overlap summary workbook
   # -------------------------------------------------------------------
@@ -367,17 +372,23 @@ check_multiple_class_memberships <- function(class_list_df,
 #'
 #' @export
 detect_multiple_class_memberships <- function(class_list_df) {
-  # Clean and standardize
-  class_list <- class_list_df |>
-    clean_class_names(default_class_name = "") |>
-    reduce_to_best_teacher() |>
-    produce_class_lists(class_name_column = "class_name_use")
+  out = class_list_df |>
+    dplyr::group_by(SchoolId,SchoolName,URN,StudentId,StudentFirstName,StudentLastName,DoB,UPN) |>
+    dplyr::summarise(classes = ClassId |> unique() |> paste0(collapse = ', '),
+                     no_classes = ClassId |> unique() |> length()) |>
+    dplyr::filter(no_classes > 1)
   
-  # Identify students with multiple classes
-  out <- class_list[stringr::str_detect(class_list$`Class Name`, ", "), ]
-  
-  # Remove teacher columns for clarity
-  out <- out[, !(names(out) |> stringr::str_detect("Teacher")), drop = FALSE]
+  # # Clean and standardize
+  # class_list <- class_list_df |>
+  #   clean_class_names(default_class_name = "") |>
+  #   reduce_to_best_teacher() |>
+  #   produce_class_lists(class_name_column = "class_name_use")
+  # 
+  # # Identify students with multiple classes
+  # out <- class_list[stringr::str_detect(class_list$`Class Name`, ", "), ]
+  # 
+  # # Remove teacher columns for clarity
+  # out <- out[, !(names(out) |> stringr::str_detect("Teacher")), drop = FALSE]
   
   return(out)
 }
