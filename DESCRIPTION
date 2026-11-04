@@ -29,7 +29,6 @@ Depends:
 Suggests: 
     knitr,
     OMELink,
-    OMEManage (>= 0.1.0),
     rmarkdown,
     testthat (>= 3.0.0)
 Remotes: 
