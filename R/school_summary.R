@@ -13,6 +13,9 @@
 #'   target year group (default includes multiple Year 7 code variations).
 #' @param subject_keywords Character vector of subject name patterns to identify
 #'   relevant subjects (default identifies Maths-related names).
+#' @param schools_id_column Character string specifying the column
+#'   in the schools data frame containing the school identifiers
+#'   used to associate records with individual schools.
 #'
 #' @return
 #' A data frame containing school-level summaries including:
@@ -51,7 +54,8 @@ summarise_school_data <- function(
     schools,
     WondeData,
     year_codes_target = c("7", "Year 7", "07", "Year 07", "Y7", "Yr7", "Yr 7"),
-    subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic", "Mathematics (Assessment+)")
+    subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic", "Mathematics (Assessment+)"),
+    schools_id_column = 'EstablishmentID'
 ) {
   get_target_year_ids <- function(x) {
     
@@ -83,7 +87,7 @@ summarise_school_data <- function(
     character(0)
   }
   
-  WondeIds <- schools$id
+  WondeIds <- schools[[schools_id_column]]
   subject_keywords_upper <- toupper(subject_keywords)
 
   # 1. YEAR CODES
@@ -208,188 +212,535 @@ summarise_school_data <- function(
   have_parts[, -1] <- lapply(have_parts[, -1], as.logical)
 
   # 9. JOIN BACK TO SCHOOLS
-  schools <- merge(schools, have_parts, by.x = "id", by.y = "WondeId", all.x = TRUE)
+  schools <- merge(schools, have_parts, by.x = schools_id_column, by.y = "WondeId", all.x = TRUE)
   return(schools)
 }
+
+
 
 
 #' @title Summarise Small Classes by School
 #'
 #' @description
-#' Groups a class list by school and summarises the occurrence of small classes,
-#' defined as classes with a number of students less than or equal to `threshold`.
-#' For each school, the function reports:
-#' \itemize{
-#'   \item The total number of classes in the school.
-#'   \item The number of classes with ≤ `threshold` students.
-#'   \item The total number of students in those small classes.
-#'   \item The sizes of all small classes (comma-separated).
-#'   \item The percentage of all students in the school who are in small classes.
-#' }
+#' Summarises small classes within each school, where small classes
+#' contain at most `threshold` students.
 #'
-#' @param class_list A data frame containing at least the columns:
-#'   `"School name"`, `"URN"`, `"Class Name"`, and `"Pupil First Name"`.
-#' @param school_name_col Column name for school names. Default: `"School name"`.
-#' @param urn_col Column name for school URNs. Default: `"URN"`.
-#' @param class_col Column name for class names. Default: `"Class Name"`.
-#' @param pupil_col Column name for pupil names (used only if no unique ID column is provided).
-#'   Default: `"Pupil First Name"`.
-#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
-#'   If provided and present in `class_list`, counts of students per class will use distinct values
-#'   in this column. If `NULL` (default), each row is assumed to represent one student.
-#' @param threshold Numeric. The maximum class size considered "small". Default: `3`.
+#' School identification uses `est_id` preferentially, falling back
+#' to `est_wonde_name` if `est_id` is unavailable.
 #'
-#' @return A tibble summarising, for each school:
+#' Class identification uses `class_name` preferentially, falling
+#' back to `c_wonde_name` if `class_name` is unavailable.
+#'
+#' Column names are resolved using the package's configurable
+#' column-name system.
+#'
+#' @param class_list A class-list data frame using configured or
+#'   internal column names.
+#' @param unique_id_col Optional student identifier column.
+#'   Can be an internal key (e.g. `"ome_id"`), configured name
+#'   (e.g. `"OME_ID"`), or another column present in the data.
+#'   If NULL, each row is counted as one student.
+#' @param threshold Numeric. Maximum class size considered small.
+#'   Defaults to 3.
+#'
+#' @return A tibble containing the selected school identifier,
+#'   using its configured column name, followed by:
 #' \describe{
-#'   \item{School name}{School name.}
-#'   \item{URN}{Unique reference number for the school.}
 #'   \item{TotalClasses}{Number of classes in the school.}
-#'   \item{SmallClasses}{Number of classes with ≤ `threshold` students.}
-#'   \item{StudentsInSmallClasses}{Total students in those small classes.}
-#'   \item{SmallClassSizes}{Comma-separated sizes of all small classes.}
-#'   \item{TotalStudents}{Total number of students across all classes.}
-#'   \item{PercentInSmallClasses}{Percentage of students in small classes.}
+#'   \item{SmallClasses}{Number of small classes.}
+#'   \item{StudentsInSmallClasses}{Total students in small classes.}
+#'   \item{SmallClassSizes}{Comma-separated small class sizes.}
+#'   \item{TotalStudents}{Sum of student counts across classes.}
+#'   \item{PercentInSmallClasses}{Percentage of student counts
+#'     belonging to small classes.}
 #' }
+#'
+#' @details
+#' Column selection is based on availability, not missing values.
+#' If `est_id` exists, it is used even if some values are NA.
+#' The same applies to `class_name`.
+#'
+#' When a unique identifier is supplied, distinct non-missing
+#' identifiers are counted within each class. Otherwise, each
+#' row is treated as one student.
 #'
 #' @examples
 #' \dontrun{
 #' summarise_small_classes(class_list_df)
-#' summarise_small_classes(class_list_df, unique_id_col = "UPN", threshold = 5)
+#'
+#' summarise_small_classes(
+#'   class_list_df,
+#'   unique_id_col = "ome_id",
+#'   threshold = 5
+#' )
 #' }
 #'
 #' @export
-summarise_small_classes <- function(class_list,
-                                    school_name_col = "School name",
-                                    urn_col = "URN",
-                                    class_col = "Class Name",
-                                    pupil_col = "Pupil First Name",
-                                    unique_id_col = NULL,
-                                    threshold = 3) {
+summarise_small_classes <- function(
+    class_list,
+    unique_id_col = NULL,
+    threshold = 3) {
   
-  # ---- Check required columns ----
-  required <- c(school_name_col, urn_col, class_col, pupil_col)
-  missing_cols <- setdiff(required, names(class_list))
-  if (length(missing_cols) > 0) {
-    stop("Missing required columns in class_list: ",
-         paste(missing_cols, collapse = ", "))
+  # ------------------------------------------------------------
+  # 1. Convert to internal column names
+  # ------------------------------------------------------------
+  class_list <- rename_to_internal_names(class_list)
+  
+  # ------------------------------------------------------------
+  # 2. Select preferred school identifier
+  # ------------------------------------------------------------
+  if ("est_id" %in% names(class_list)) {
+    
+    school_col <- "est_id"
+    
+  } else if ("est_wonde_name" %in% names(class_list)) {
+    
+    school_col <- "est_wonde_name"
+    
+  } else {
+    
+    stop(
+      "Missing school identifier. Requires either ",
+      "est_id or est_wonde_name.",
+      call. = FALSE
+    )
   }
   
-  # ---- Summarise ----
-  dplyr::as_tibble(class_list) |>
-    # Count number of students per class (use unique ID if available)
-    dplyr::group_by(.data[[school_name_col]],
-                    .data[[urn_col]],
-                    .data[[class_col]]) |>
+  # ------------------------------------------------------------
+  # 3. Select preferred class identifier
+  # ------------------------------------------------------------
+  if ("class_name" %in% names(class_list)) {
+    
+    class_col <- "class_name"
+    
+  } else if ("c_wonde_name" %in% names(class_list)) {
+    
+    class_col <- "c_wonde_name"
+    
+  } else {
+    
+    stop(
+      "Missing class identifier. Requires either ",
+      "class_name or c_wonde_name.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 4. Validate threshold
+  # ------------------------------------------------------------
+  if (!is.numeric(threshold) ||
+      length(threshold) != 1L ||
+      is.na(threshold) ||
+      !is.finite(threshold) ||
+      threshold < 0) {
+    
+    stop(
+      "threshold must be a single non-negative number.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 5. Resolve optional unique student identifier
+  # ------------------------------------------------------------
+  unique_col <- NULL
+  
+  if (!is.null(unique_id_col)) {
+    
+    if (!is.character(unique_id_col) ||
+        length(unique_id_col) != 1L ||
+        is.na(unique_id_col) ||
+        !nzchar(unique_id_col)) {
+      
+      stop(
+        "unique_id_col must be NULL or a single column name.",
+        call. = FALSE
+      )
+    }
+    
+    column_names <- get_column_names()
+    
+    if (unique_id_col %in% names(column_names)) {
+      
+      unique_col <- unique_id_col
+      
+    } else if (unique_id_col %in% unname(column_names)) {
+      
+      unique_col <- names(column_names)[
+        match(unique_id_col, unname(column_names))
+      ]
+      
+    } else {
+      
+      unique_col <- unique_id_col
+    }
+    
+    # Preserve the previous fallback to row counts when
+    # the requested identifier column is unavailable.
+    if (!unique_col %in% names(class_list)) {
+      unique_col <- NULL
+    }
+  }
+  
+  # ------------------------------------------------------------
+  # 6. Count students within each class
+  # ------------------------------------------------------------
+  class_summary <- dplyr::as_tibble(class_list) |>
+    dplyr::group_by(
+      .data[[school_col]],
+      .data[[class_col]]
+    ) |>
     dplyr::summarise(
-      StudentsInClass = if (!is.null(unique_id_col) && unique_id_col %in% names(class_list)) {
-        dplyr::n_distinct(.data[[unique_id_col]])
+      StudentsInClass = if (!is.null(unique_col)) {
+        dplyr::n_distinct(
+          .data[[unique_col]],
+          na.rm = TRUE
+        )
       } else {
         dplyr::n()
       },
-      .groups = "drop_last"
+      .groups = "drop"
+    )
+  
+  # ------------------------------------------------------------
+  # 7. Summarise small classes by school
+  # ------------------------------------------------------------
+  result <- class_summary |>
+    dplyr::group_by(
+      .data[[school_col]]
     ) |>
-    # Summarise per school
     dplyr::summarise(
       TotalClasses = dplyr::n(),
-      SmallClasses = sum(StudentsInClass <= threshold),
-      StudentsInSmallClasses = sum(StudentsInClass[StudentsInClass <= threshold]),
-      SmallClassSizes = paste0(StudentsInClass[StudentsInClass <= threshold], collapse = ", "),
-      TotalStudents = sum(StudentsInClass),
+      
+      SmallClasses = sum(
+        .data$StudentsInClass <= threshold
+      ),
+      
+      StudentsInSmallClasses = sum(
+        .data$StudentsInClass[
+          .data$StudentsInClass <= threshold
+        ]
+      ),
+      
+      SmallClassSizes = paste0(
+        .data$StudentsInClass[
+          .data$StudentsInClass <= threshold
+        ],
+        collapse = ", "
+      ),
+      
+      TotalStudents = sum(
+        .data$StudentsInClass
+      ),
+      
       PercentInSmallClasses = ifelse(
         TotalStudents > 0,
-        round(100 * StudentsInSmallClasses / TotalStudents, 2),
+        round(
+          100 * StudentsInSmallClasses / TotalStudents,
+          2
+        ),
         NA_real_
       ),
+      
       .groups = "drop"
     ) |>
-    dplyr::arrange(dplyr::desc(PercentInSmallClasses))
+    dplyr::arrange(
+      dplyr::desc(.data$PercentInSmallClasses)
+    )
+  
+  # ------------------------------------------------------------
+  # 8. Restore configured column names
+  # ------------------------------------------------------------
+  rename_to_configured_names(result)
 }
+
+
+
 
 #' @title Summarise Class Sizes and Percent of School Population
 #'
 #' @description
-#' Groups a class list by school and class to calculate:
+#' Groups a class list by one or more establishment and class identifiers
+#' to calculate:
 #' \itemize{
-#'   \item The total number of students in each class (class size).
-#'   \item The total number of students in the school.
-#'   \item The percentage of the school's students that belong to each class.
+#'   \item The number of students in each class.
+#'   \item The total number of students across classes in each school.
+#'   \item The percentage of the school's students belonging to each class.
 #' }
-#' Optionally counts unique students by ID (e.g. `"UPN"` or `"ID"`).
 #'
-#' @param class_list A data frame containing at least the columns:
-#'   `"School name"`, `"URN"`, `"Class Name"`, and `"Pupil First Name"`.
-#' @param school_name_col Column name for school names. Default: `"School name"`.
-#' @param urn_col Column name for school URNs. Default: `"URN"`.
-#' @param class_col Column name for class names. Default: `"Class Name"`.
-#' @param pupil_col Column name for pupil names (used only if no unique ID column is provided).
-#'   Default: `"Pupil First Name"`.
-#' @param unique_id_col (Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
-#'   If provided and present in `class_list`, counts of students per class will use distinct values
-#'   in this column. If `NULL` (default), each row is assumed to represent one student.
+#' Column names are resolved using the package's configurable
+#' column-name system. Multiple establishment and class grouping
+#' variables are supported.
 #'
-#' @return A tibble with one row per class, containing:
+#' @param class_list A class-list data frame using configured or
+#'   internal column names.
+#' @param establishment_cols Character vector of establishment
+#'   identifiers. Defaults to `c("est_id", "est_wonde_name")`.
+#'   All available columns are used for grouping.
+#' @param class_cols Character vector of class identifiers.
+#'   Defaults to `c("class_name", "c_wonde_name")`.
+#'   All available columns are used for grouping.
+#' @param unique_id_col Optional student identifier column.
+#'   Accepts an internal key, configured name or another column
+#'   present in the data. If NULL, each row counts as one student.
+#'   If specified but unavailable, row counts are used.
+#'
+#' @return A tibble containing the selected establishment and class
+#'   identifiers, followed by:
 #' \describe{
-#'   \item{School name}{School name.}
-#'   \item{URN}{Unique reference number for the school.}
-#'   \item{Class Name}{Name of the class.}
-#'   \item{StudentsInClass}{Number of students in the class.}
-#'   \item{TotalStudentsInSchool}{Total number of students in the school.}
-#'   \item{PercentOfSchool}{Percentage of the school's total students in this class.}
+#'   \item{STUDENTS_IN_CLASS}{Number of students in the class.}
+#'   \item{TOTAL_STUDENTS_IN_SCHOOL}{Sum of class-level student counts
+#'     for the establishment.}
+#'   \item{PERCENT_OF_SCHOOL}{Percentage of the establishment's
+#'     student counts belonging to the class.}
 #' }
+#'
+#' All returned columns use uppercase names with underscore separators.
+#'
+#' @details
+#' Both internal and configured column names are supported in
+#' `establishment_cols`, `class_cols` and `unique_id_col`.
+#'
+#' Missing grouping columns are skipped, provided at least one
+#' establishment and one class identifier remain.
+#'
+#' If a unique identifier is supplied, distinct values are counted
+#' within each class, including NA as one distinct value, consistent
+#' with the original function.
+#'
+#' Students appearing in multiple classes contribute separately
+#' to each class's count.
 #'
 #' @examples
 #' \dontrun{
 #' summarise_class_sizes(class_list_df)
-#' summarise_class_sizes(class_list_df, unique_id_col = "UPN")
+#'
+#' summarise_class_sizes(
+#'   class_list_df,
+#'   unique_id_col = "ome_id"
+#' )
+#'
+#' summarise_class_sizes(
+#'   class_list_df,
+#'   establishment_cols = c("est_id", "est_wonde_name"),
+#'   class_cols = c("class_name", "c_wonde_name")
+#' )
 #' }
 #'
 #' @export
-summarise_class_sizes <- function(class_list,
-                                  school_name_col = "School name",
-                                  urn_col = "URN",
-                                  class_col = "Class Name",
-                                  pupil_col = "Pupil First Name",
-                                  unique_id_col = NULL) {
+summarise_class_sizes <- function(
+    class_list,
+    establishment_cols = c("est_id", "est_wonde_name"),
+    class_cols = c("class_name", "c_wonde_name"),
+    unique_id_col = NULL) {
   
-  # ---- Check required columns ----
-  required <- c(school_name_col, urn_col, class_col, pupil_col)
-  missing_cols <- setdiff(required, names(class_list))
-  if (length(missing_cols) > 0) {
-    stop("Missing required columns in class_list: ",
-         paste(missing_cols, collapse = ", "))
+  # ------------------------------------------------------------
+  # 1. Convert class-list columns to internal names
+  # ------------------------------------------------------------
+  class_list <- rename_to_internal_names(class_list)
+  
+  column_names <- get_column_names()
+  
+  # ------------------------------------------------------------
+  # 2. Validate grouping arguments
+  # ------------------------------------------------------------
+  if (!is.character(establishment_cols) ||
+      length(establishment_cols) == 0L ||
+      anyNA(establishment_cols) ||
+      any(!nzchar(establishment_cols))) {
+    
+    stop(
+      "establishment_cols must be a non-empty character vector.",
+      call. = FALSE
+    )
   }
   
-  # ---- Compute class sizes ----
+  if (!is.character(class_cols) ||
+      length(class_cols) == 0L ||
+      anyNA(class_cols) ||
+      any(!nzchar(class_cols))) {
+    
+    stop(
+      "class_cols must be a non-empty character vector.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 3. Resolve internal and configured column names
+  # ------------------------------------------------------------
+  resolve_cols <- function(cols) {
+    
+    resolved <- vapply(
+      cols,
+      function(col) {
+        
+        if (col %in% names(column_names)) {
+          return(col)
+        }
+        
+        if (col %in% unname(column_names)) {
+          return(names(column_names)[
+            match(col, unname(column_names))
+          ])
+        }
+        
+        col
+      },
+      character(1),
+      USE.NAMES = FALSE
+    )
+    
+    unique(resolved)
+  }
+  
+  establishment_cols <- resolve_cols(establishment_cols)
+  class_cols <- resolve_cols(class_cols)
+  
+  # ------------------------------------------------------------
+  # 4. Retain available grouping columns
+  # ------------------------------------------------------------
+  establishment_cols <- establishment_cols[
+    establishment_cols %in% names(class_list)
+  ]
+  
+  class_cols <- class_cols[
+    class_cols %in% names(class_list)
+  ]
+  
+  if (length(establishment_cols) == 0L) {
+    stop(
+      "No establishment identifier columns found in class_list.",
+      call. = FALSE
+    )
+  }
+  
+  if (length(class_cols) == 0L) {
+    stop(
+      "No class identifier columns found in class_list.",
+      call. = FALSE
+    )
+  }
+  
+  if (length(intersect(establishment_cols, class_cols)) > 0L) {
+    stop(
+      "Establishment and class grouping columns must be distinct.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 5. Resolve optional unique student identifier
+  # ------------------------------------------------------------
+  unique_col <- NULL
+  
+  if (!is.null(unique_id_col)) {
+    
+    if (!is.character(unique_id_col) ||
+        length(unique_id_col) != 1L ||
+        is.na(unique_id_col) ||
+        !nzchar(unique_id_col)) {
+      
+      stop(
+        "unique_id_col must be NULL or a single column name.",
+        call. = FALSE
+      )
+    }
+    
+    unique_col <- resolve_cols(unique_id_col)
+    
+    # Fall back to row counts if the identifier is unavailable.
+    if (!unique_col %in% names(class_list)) {
+      unique_col <- NULL
+    }
+  }
+  
+  # ------------------------------------------------------------
+  # 6. Calculate students per class
+  # ------------------------------------------------------------
+  grouping_cols <- c(establishment_cols, class_cols)
+  
   class_summary <- dplyr::as_tibble(class_list) |>
-    dplyr::group_by(.data[[school_name_col]],
-                    .data[[urn_col]],
-                    .data[[class_col]]) |>
+    dplyr::group_by(
+      dplyr::across(dplyr::all_of(grouping_cols))
+    ) |>
     dplyr::summarise(
-      StudentsInClass = if (!is.null(unique_id_col) && unique_id_col %in% names(class_list)) {
-        dplyr::n_distinct(.data[[unique_id_col]])
+      STUDENTS_IN_CLASS = if (!is.null(unique_col)) {
+        dplyr::n_distinct(.data[[unique_col]])
       } else {
         dplyr::n()
       },
       .groups = "drop"
     )
   
-  # ---- Compute school totals and join ----
+  # ------------------------------------------------------------
+  # 7. Calculate school totals
+  # ------------------------------------------------------------
   school_totals <- class_summary |>
-    dplyr::group_by(.data[[school_name_col]], .data[[urn_col]]) |>
+    dplyr::group_by(
+      dplyr::across(dplyr::all_of(establishment_cols))
+    ) |>
     dplyr::summarise(
-      TotalStudentsInSchool = sum(StudentsInClass),
+      TOTAL_STUDENTS_IN_SCHOOL = sum(
+        .data$STUDENTS_IN_CLASS
+      ),
       .groups = "drop"
     )
   
-  dplyr::left_join(class_summary, school_totals,
-                   by = c(school_name_col, urn_col)) |>
+  # ------------------------------------------------------------
+  # 8. Calculate percentage of school population
+  # ------------------------------------------------------------
+  result <- dplyr::left_join(
+    class_summary,
+    school_totals,
+    by = establishment_cols
+  ) |>
     dplyr::mutate(
-      PercentOfSchool = ifelse(
-        TotalStudentsInSchool > 0,
-        round(100 * StudentsInClass / TotalStudentsInSchool, 2),
+      PERCENT_OF_SCHOOL = ifelse(
+        .data$TOTAL_STUDENTS_IN_SCHOOL > 0,
+        round(
+          100 * .data$STUDENTS_IN_CLASS /
+            .data$TOTAL_STUDENTS_IN_SCHOOL,
+          2
+        ),
         NA_real_
       )
     ) |>
-    dplyr::arrange(dplyr::desc(PercentOfSchool))
+    dplyr::arrange(
+      dplyr::desc(.data$PERCENT_OF_SCHOOL)
+    )
+  
+  # ------------------------------------------------------------
+  # 9. Restore configured column names
+  # ------------------------------------------------------------
+  result <- rename_to_configured_names(result)
+  
+  # ------------------------------------------------------------
+  # 10. Standardise all returned column names
+  # ------------------------------------------------------------
+  names(result) <- toupper(
+    gsub(
+      "([a-z0-9])([A-Z])",
+      "\\1_\\2",
+      names(result)
+    )
+  )
+  
+  names(result) <- gsub(
+    "[^A-Z0-9]+",
+    "_",
+    names(result)
+  )
+  
+  names(result) <- gsub(
+    "^_+|_+$",
+    "",
+    names(result)
+  )
+  
+  result
 }
+
+
 

@@ -1,4 +1,4 @@
-url: ~
+url: https://Jake-Powell.github.io/WondeCL/
 template:
   bootstrap: 5
   light-switch: yes
@@ -10,6 +10,3 @@ navbar:
 
 
 reference:
-  - title: "Withdrawing functions"
-    contents:
-      - starts_with("withdrawing-")

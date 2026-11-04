@@ -2,41 +2,64 @@
 % Please edit documentation in R/withdrawing.R
 \name{clear_withdrawn_student_data}
 \alias{clear_withdrawn_student_data}
-\title{Clear identifying data for withdrawn students}
+\title{Clear Identifying Data for Withdrawn Students}
 \usage{
 clear_withdrawn_student_data(
   data,
-  WithdrawColumn = "Withdrawn?",
-  columns_to_clear = c("UPN", "DoB", "Print ID", "OME_ID"),
+  WithdrawColumn = "withdrawn",
+  columns_to_clear = c("upn", "dob", "hex_id", "ome_id"),
   verbose = FALSE
 )
 }
 \arguments{
-\item{data}{A data frame representing the class list.}
+\item{data}{A data frame containing class list information.}
 
-\item{WithdrawColumn}{The name of the column used to indicate withdrawn
-students (default: \code{'Withdrawn?'}).}
+\item{WithdrawColumn}{Character string identifying the withdrawal
+status column. Defaults to `"withdrawn"`, corresponding to
+`"Withdrawn?"` in the default column-name lookup.}
 
-\item{columns_to_clear}{A character vector of column names to clear for
-withdrawn students. Default: \code{c("UPN", "DoB", "Print ID", "OME_ID")}.}
+\item{columns_to_clear}{Character vector of columns to clear.
+Defaults to `c("upn", "dob", "print_id", "ome_id")`.
+Columns not present in the data frame are ignored.}
 
-\item{verbose}{Logical; if \code{TRUE}, prints a summary message.}
+\item{verbose}{Logical; if TRUE, prints a summary message.}
 }
 \value{
-The updated data frame with specified fields cleared for withdrawn students.
+A data frame with identifying fields set to NA for withdrawn
+students. Column names are returned using the configured
+naming convention.
 }
 \description{
-For any students marked as withdrawn (i.e., rows where the
-\code{'Withdrawn?'} column equals \code{'Y'}), this function removes
-identifying information by setting selected columns to \code{NA}.
+Removes identifying information for students marked as withdrawn.
+Only rows where the withdrawal indicator equals `"Y"` are updated.
 
-Specifically, the function sets the values in \code{'UPN'}, \code{'DoB'},
-\code{'Print ID'}, and \code{'OME_ID'} to \code{NA}, but only for columns
-that already exist in the data frame. Missing columns are ignored.
+Supports the package's configurable column-name system, accepting
+either internal identifiers or configured external column names.
+}
+\details{
+The function:
+\enumerate{
+  \item Converts configured column names to internal names.
+  \item Resolves the requested withdrawal and identifying columns.
+  \item Identifies records where the withdrawal status is `"Y"`.
+  \item Sets the requested identifying fields to NA for these records.
+  \item Restores the configured column names.
+}
+
+No student identifier is required. Records are processed
+individually using the withdrawal indicator.
+
+If the withdrawal column is absent, a warning is issued and
+the original data frame is returned unchanged.
 }
 \examples{
 \dontrun{
-updated_class_list <- clear_withdrawn_student_data(class_list)
+updated <- clear_withdrawn_student_data(class_list)
+
+updated <- clear_withdrawn_student_data(
+  class_list,
+  columns_to_clear = c("DOB", "UPN")
+)
 }
 
 }

@@ -2,56 +2,22 @@
 % Please edit documentation in R/class_list_functions.R
 \name{clean_class_names}
 \alias{clean_class_names}
-\title{Clean and standardize class names in school data}
+\title{Clean Class Names}
 \usage{
 clean_class_names(data, default_class_name = "Reception")
 }
 \arguments{
-\item{data}{A data frame containing at least the columns `SchoolId`,
-`StudentId`, `ClassId`, and `ClassName`.}
+\item{data}{A class list dataframe.}
 
-\item{default_class_name}{Character string specifying the class name to use
-when no class name or ID is available. Default is `"Reception"`.}
+\item{default_class_name}{Default name for missing or merged classes.
+Defaults to "Reception".}
 }
 \value{
-A data frame identical to the input `data` but with two new columns added:
-\describe{
-  \item{`ClassId_use`}{A cleaned class identifier, with missing values
-  replaced by `<SchoolId>CLASS`.}
-  \item{`class_name_use`}{A standardized, title-cased class name suitable for
-  downstream processing.}
-}
+A dataframe with additional configured columns
+  CLASS_ID and CLASS_NAME.
 }
 \description{
-Attempts to clean, fill, and standardize class identifiers and names within
-a school dataset. Missing or inconsistent class names are replaced with a
-default name (e.g. `"Reception"`). Classes that contain exactly the same
-group of students are merged into a single logical class.
-}
-\details{
-The function performs the following operations:
-\enumerate{
-  \item Extracts class-related fields (`SchoolId`, `StudentId`, `ClassId`,
-        `ClassName`) from the input data.
-  \item Replaces missing `ClassId` and `ClassName` values with the
-        `default_class_name` and a synthetic class ID.
-  \item Checks whether students belong to multiple classes and identifies
-        sets of classes that share exactly the same student membership.
-  \item If a set of identical classes belongs entirely to one school and that
-        school has no other classes, merges them into a single class named
-        with the `default_class_name`.
-  \item Produces two new cleaned columns, `ClassId_use` and
-        `class_name_use`, leaving the original data unchanged.
-}
-
-This function is designed to be used early in the class list cleaning
-workflow, typically followed by `reduce_to_best_teacher()` and
-`produce_class_lists()`.
-}
-\examples{
-\dontrun{
-cleaned <- clean_class_names(class_list_df, default_class_name = "Year 7")
-head(cleaned$class_name_use)
-}
-
+Cleans class names, assigns default class information to students
+without a class, and identifies classes containing identical students
+within the same school.
 }

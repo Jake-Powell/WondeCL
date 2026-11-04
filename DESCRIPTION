@@ -1,7 +1,7 @@
 Package: WondeCL
 Type: Package
 Title: Create class lists from Wonde API
-Version: 0.1.0
+Version: 0.2.0
 Author: Jake Powell
 Maintainer: Jake Powell <yourself@somewhere.net>
 Description: Use the Wonde API to create class lists to be used in created surveys to send to schools.
@@ -17,6 +17,7 @@ Imports:
     openxlsx,
     pbapply,
     readxl,
+    rlang,
     stringi,
     stringr,
     tidyr
@@ -27,9 +28,12 @@ Depends:
     R (>= 3.5)
 Suggests: 
     knitr,
+    OMELink,
     OMEManage (>= 0.1.0),
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 Remotes: 
-    Jake-Powell/OMEManage
+    Jake-Powell/OMELink
 VignetteBuilder: knitr
 Config/Needs/website: rmarkdown
+Config/testthat/edition: 3

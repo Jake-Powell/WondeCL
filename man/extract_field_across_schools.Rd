@@ -45,8 +45,12 @@ For example, it can be used to summarise:
 }
 \examples{
 \dontrun{
-extract_field_across_schools(WondeData, "student$students.data__year.data.code")
-extract_field_across_schools(WondeData, "students_group$groups.data__name", "group_name", verbose = FALSE)
+extract_field_across_schools(WondeData,
+ "student$students.data__year.data.code")
+extract_field_across_schools(WondeData,
+ "students_group$groups.data__name",
+  "group_name",
+   verbose = FALSE)
 }
 
 }

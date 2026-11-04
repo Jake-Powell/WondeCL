@@ -2,51 +2,88 @@
 % Please edit documentation in R/class_list_functions.R
 \name{clean_teacher_names}
 \alias{clean_teacher_names}
-\title{Clean and standardize teacher name formatting}
+\title{Clean and Standardise Teacher Name Formatting}
 \usage{
-clean_teacher_names(
-  data,
-  teacher_name_col = "Main Teacher Name",
-  TeacherFNColumn = "Main Teacher First Name",
-  TeacherLNColumn = "Main Teacher Last Name"
-)
+clean_teacher_names(data)
 }
 \arguments{
-\item{data}{A data frame containing class list information. Must include
-teacher name columns such as `"Main Teacher Name"`, `"Main Teacher First Name"`,
-and `"Main Teacher Last Name"`.}
-
-\item{teacher_name_col}{Character string giving the name of the column
-containing the teacher's full name. Defaults to `"Main Teacher Name"`.}
-
-\item{TeacherFNColumn}{Character string giving the name of the column
-containing the teacher's first name. Defaults to `"Main Teacher First Name"`.}
-
-\item{TeacherLNColumn}{Character string giving the name of the column
-containing the teacher's last name. Defaults to `"Main Teacher Last Name"`.}
+\item{data}{A data frame containing class list information.
+The following columns are required, using either their internal
+names or the currently configured column names:
+\describe{
+  \item{t_full}{Teacher's full name
+    (default: `TEACHER_FULL_NAME`).}
+  \item{tfn}{Teacher's first name
+    (default: `TEACHER_FIRST_NAME`).}
+  \item{tln}{Teacher's surname
+    (default: `TEACHER_LAST_NAME`).}
+}}
 }
 \value{
-A data frame identical to the input `data`, with all teacher name columns
-converted to title case.
+A data frame identical to the input `data`, except that the teacher
+name columns are converted to title case. Column names are returned
+using the package's configured naming convention.
 }
 \description{
-Converts all teacher name fields in a class list to title case (e.g.,
-"john SMITH" becomes "John Smith"). This ensures consistent formatting across
-teacher names for display, reporting, and downstream processing.
+Converts teacher name fields in a class list to title case (e.g.,
+"john SMITH" becomes "John Smith"). This ensures consistent formatting
+across teacher names for display, reporting and downstream processing.
+
+The function supports the package's configurable column-name system,
+automatically converting input column names to their internal
+equivalents before processing and restoring the configured names
+in the returned data frame.
 }
 \details{
-This function is typically used after data extraction or merging steps to
-clean up inconsistent capitalization in teacher names. It is complementary
-to \code{\link{clean_class_names}()} and \code{\link{reduce_to_best_teacher}()},
-providing the final formatting pass before export.
+The function performs the following steps:
+\enumerate{
+  \item Converts the input column names to their internal equivalents
+        using `rename_to_internal_names()`.
+  \item Checks that all required teacher name columns are present.
+  \item Converts the teacher full name, first name and surname to title
+        case using `stringr::str_to_title()`.
+  \item Restores the configured column names using
+        `rename_to_configured_names()`.
+}
 
-If any of the specified teacher name columns are missing from the input data,
-the function will stop with an informative error message.
+Missing (`NA`) values are preserved. All other columns and their
+values remain unchanged.
+
+This function is typically used after data extraction or merging,
+or following `produce_class_lists()`, as a final formatting step
+before export.
 }
 \examples{
 \dontrun{
+# Clean teacher names using the default configured column names
 cleaned_df <- clean_teacher_names(class_list_df)
-head(cleaned_df[, c("Main Teacher Name", "Main Teacher First Name", "Main Teacher Last Name")])
+
+# Inspect the cleaned teacher names
+cleaned_df[, unname(get_column_names(
+  c("t_full", "tfn", "tln")
+))]
+
+# The function also supports modified column names
+set_column_names(t_full = "MAIN_TEACHER")
+cleaned_df <- clean_teacher_names(class_list_df)
+
+# Restore defaults
+reset_column_names()
 }
 
 }
+\seealso{
+Other class_list: 
+\code{\link{add_student_to_school_class}()},
+\code{\link{create_school_blanks}()},
+\code{\link{produce_class_lists}()},
+\code{\link{reduce_to_best_teacher}()},
+\code{\link{remove_class}()},
+\code{\link{remove_school_from_class_list}()},
+\code{\link{remove_student_from_class}()},
+\code{\link{update_class_name}()},
+\code{\link{update_class_teacher}()},
+\code{\link{update_school_name}()},
+\code{\link{update_student_class}()}
+}
+\concept{class_list}

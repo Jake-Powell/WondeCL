@@ -4,64 +4,64 @@
 \alias{summarise_small_classes}
 \title{Summarise Small Classes by School}
 \usage{
-summarise_small_classes(
-  class_list,
-  school_name_col = "School name",
-  urn_col = "URN",
-  class_col = "Class Name",
-  pupil_col = "Pupil First Name",
-  unique_id_col = NULL,
-  threshold = 3
-)
+summarise_small_classes(class_list, unique_id_col = NULL, threshold = 3)
 }
 \arguments{
-\item{class_list}{A data frame containing at least the columns:
-`"School name"`, `"URN"`, `"Class Name"`, and `"Pupil First Name"`.}
+\item{class_list}{A class-list data frame using configured or
+internal column names.}
 
-\item{school_name_col}{Column name for school names. Default: `"School name"`.}
+\item{unique_id_col}{Optional student identifier column.
+Can be an internal key (e.g. `"ome_id"`), configured name
+(e.g. `"OME_ID"`), or another column present in the data.
+If NULL, each row is counted as one student.}
 
-\item{urn_col}{Column name for school URNs. Default: `"URN"`.}
-
-\item{class_col}{Column name for class names. Default: `"Class Name"`.}
-
-\item{pupil_col}{Column name for pupil names (used only if no unique ID column is provided).
-Default: `"Pupil First Name"`.}
-
-\item{unique_id_col}{(Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
-If provided and present in `class_list`, counts of students per class will use distinct values
-in this column. If `NULL` (default), each row is assumed to represent one student.}
-
-\item{threshold}{Numeric. The maximum class size considered "small". Default: `3`.}
+\item{threshold}{Numeric. Maximum class size considered small.
+Defaults to 3.}
 }
 \value{
-A tibble summarising, for each school:
+A tibble containing the selected school identifier,
+  using its configured column name, followed by:
 \describe{
-  \item{School name}{School name.}
-  \item{URN}{Unique reference number for the school.}
   \item{TotalClasses}{Number of classes in the school.}
-  \item{SmallClasses}{Number of classes with ≤ `threshold` students.}
-  \item{StudentsInSmallClasses}{Total students in those small classes.}
-  \item{SmallClassSizes}{Comma-separated sizes of all small classes.}
-  \item{TotalStudents}{Total number of students across all classes.}
-  \item{PercentInSmallClasses}{Percentage of students in small classes.}
+  \item{SmallClasses}{Number of small classes.}
+  \item{StudentsInSmallClasses}{Total students in small classes.}
+  \item{SmallClassSizes}{Comma-separated small class sizes.}
+  \item{TotalStudents}{Sum of student counts across classes.}
+  \item{PercentInSmallClasses}{Percentage of student counts
+    belonging to small classes.}
 }
 }
 \description{
-Groups a class list by school and summarises the occurrence of small classes,
-defined as classes with a number of students less than or equal to `threshold`.
-For each school, the function reports:
-\itemize{
-  \item The total number of classes in the school.
-  \item The number of classes with ≤ `threshold` students.
-  \item The total number of students in those small classes.
-  \item The sizes of all small classes (comma-separated).
-  \item The percentage of all students in the school who are in small classes.
+Summarises small classes within each school, where small classes
+contain at most `threshold` students.
+
+School identification uses `est_id` preferentially, falling back
+to `est_wonde_name` if `est_id` is unavailable.
+
+Class identification uses `class_name` preferentially, falling
+back to `c_wonde_name` if `class_name` is unavailable.
+
+Column names are resolved using the package's configurable
+column-name system.
 }
+\details{
+Column selection is based on availability, not missing values.
+If `est_id` exists, it is used even if some values are NA.
+The same applies to `class_name`.
+
+When a unique identifier is supplied, distinct non-missing
+identifiers are counted within each class. Otherwise, each
+row is treated as one student.
 }
 \examples{
 \dontrun{
 summarise_small_classes(class_list_df)
-summarise_small_classes(class_list_df, unique_id_col = "UPN", threshold = 5)
+
+summarise_small_classes(
+  class_list_df,
+  unique_id_col = "ome_id",
+  threshold = 5
+)
 }
 
 }

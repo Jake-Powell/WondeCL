@@ -9,7 +9,8 @@ summarise_school_data(
   WondeData,
   year_codes_target = c("7", "Year 7", "07", "Year 07", "Y7", "Yr7", "Yr 7"),
   subject_keywords = c("Maths", "Mathematics", "Ma", "Mathematic",
-    "Mathematics (Assessment+)")
+    "Mathematics (Assessment+)"),
+  schools_id_column = "EstablishmentID"
 )
 }
 \arguments{
@@ -24,6 +25,10 @@ target year group (default includes multiple Year 7 code variations).}
 
 \item{subject_keywords}{Character vector of subject name patterns to identify
 relevant subjects (default identifies Maths-related names).}
+
+\item{schools_id_column}{Character string specifying the column
+in the schools data frame containing the school identifiers
+used to associate records with individual schools.}
 }
 \value{
 A data frame containing school-level summaries including:

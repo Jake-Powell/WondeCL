@@ -2,17 +2,14 @@
 % Please edit documentation in R/student_matching.R
 \name{add_student_ids_from_previous}
 \alias{add_student_ids_from_previous}
-\title{Add Student_IDs (and original data) from a previous class list}
+\title{Add Student IDs from a Master List}
 \usage{
 add_student_ids_from_previous(
   new_class_list,
-  old_class_list,
-  FN_column = "Pupil First Name",
-  LN_column = "Pupil Last Name",
-  DoB_column = "DoB",
-  UPN_column = "UPN",
-  URN_column = "URN",
-  Student_ID_column = "Student_ID",
+  master_list,
+  master_columns = c(ome_id = "OME_ID", sfn = "FNS", sln = "LNS", dob = "DOBS", upn =
+    "UPN", est_id = "EST_ID"),
+  school_id_column = "est_id",
   verbose = FALSE,
   fuzzy_match = TRUE,
   max_dist = 2,
@@ -20,43 +17,56 @@ add_student_ids_from_previous(
 )
 }
 \arguments{
-\item{new_class_list}{Data frame of the current class list.}
+\item{new_class_list}{Current class-list data frame.}
 
-\item{old_class_list}{Data frame of the previous class list (must contain \code{Student_ID}).}
+\item{master_list}{Student Master List data frame.}
 
-\item{FN_column}{Column name for pupil first names (default: "Pupil First Name").}
+\item{master_columns}{Named character vector mapping internal field
+names to columns in the master list. By default, FNS and LNS
+contain historical names separated by "---".}
 
-\item{LN_column}{Column name for pupil last names (default: "Pupil Last Name").}
+\item{school_id_column}{Internal or configured school identifier
+in the class list. Defaults to "est_id".}
 
-\item{DoB_column}{Column name for pupil date of birth (default: "DoB").}
+\item{verbose}{Logical. If TRUE, displays progress information.}
 
-\item{UPN_column}{Column name for pupil UPNs (default: "UPN").}
+\item{fuzzy_match}{Logical. If TRUE, performs name matching for
+remaining unmatched students. Defaults to TRUE.}
 
-\item{URN_column}{Column name for school URNs (default: "URN").}
+\item{max_dist}{Maximum edit distance passed to
+OMELink::match_person_to_data().}
 
-\item{Student_ID_column}{Column name for student IDs (default: "Student_ID").}
-
-\item{verbose}{Logical; if TRUE, prints progress information.}
-
-\item{fuzzy_match}{Logical; if TRUE, performs fuzzy name matching using
-\code{OMEManage::match_person_to_data()} for remaining unmatched students.}
-
-\item{max_dist}{Maximum allowed edit distance for fuzzy name matching (default: 2).}
-
-\item{method}{Method passed to \code{stringdist::stringdist()} (default: "osa").}
+\item{method}{Matching method passed to
+OMELink::match_person_to_data().}
 }
 \value{
-The updated new_class_list data frame with:
-\itemize{
-  \item Student_ID filled where possible from the previous dataset
-  \item Match Method column ("UPN", "EXACT", "FUZZY MATCH", etc.)
-  \item Old data columns: Old Pupil First Name, Old Pupil Last Name, and Old DoB (if available)
-}
+Updated class list containing OME_ID, MATCH_METHOD,
+OLD_STUDENT_FIRST_NAME, OLD_STUDENT_LAST_NAME and OLD_DOB.
 }
 \description{
-Reuses existing \code{Student_ID} values from a previous class list by matching
-students in a new class list. Matching is first attempted by UPN (for rows
-with a valid UPN), then by name (first and last name) restricted to the same
-school (by URN). If both datasets have date of birth information, mismatches
-are flagged by appending "DoB not matched" to the match method description.
+Reuses existing OME_ID values from a Student Master List by matching
+students in a new class list.
+
+Matching is attempted first using UPN. Remaining students are matched
+by name within the same establishment using OMELink::match_person_to_data(),
+with an exact-name fallback if OMELink is unavailable.
+
+Column names in the class list are resolved using the package's
+column configuration. Master-list column names are specified
+independently using master_columns.
+}
+\details{
+The original matching methodology is retained. UPN matching
+uses match(), taking the first matching master-list record.
+Name-based matching is restricted to the selected school.
+
+OLD_STUDENT_FIRST_NAME and OLD_STUDENT_LAST_NAME are always
+returned in lowercase. For UPN matches, these contain the
+complete historical name strings from FNS and LNS. For
+OMELink matches, they contain the matched name candidates.
+
+Historical DoBs separated by "---" are considered individually
+when checking for mismatches for fuzzy/partial name matches.
+
+Additional master-list fields are not used in matching.
 }

@@ -27,8 +27,12 @@
 #'
 #' @examples
 #' \dontrun{
-#' extract_field_across_schools(WondeData, "student$students.data__year.data.code")
-#' extract_field_across_schools(WondeData, "students_group$groups.data__name", "group_name", verbose = FALSE)
+#' extract_field_across_schools(WondeData,
+#'  "student$students.data__year.data.code")
+#' extract_field_across_schools(WondeData,
+#'  "students_group$groups.data__name",
+#'   "group_name",
+#'    verbose = FALSE)
 #' }
 #'
 #' @export
@@ -87,7 +91,7 @@ extract_field_across_schools <- function(WondeData, field_path, value_name = "va
   }
   
   # Step 3: aggregate across schools
-  summary_df <- aggregate(count ~ value, data = df, sum)
+  summary_df <- stats::aggregate(count ~ value, data = df, sum)
   
   # Step 4: list schools that have each value
   school_list <- tapply(df$WondeId, df$value, function(ids)

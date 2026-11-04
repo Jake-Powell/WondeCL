@@ -6,54 +6,82 @@
 \usage{
 summarise_class_sizes(
   class_list,
-  school_name_col = "School name",
-  urn_col = "URN",
-  class_col = "Class Name",
-  pupil_col = "Pupil First Name",
+  establishment_cols = c("est_id", "est_wonde_name"),
+  class_cols = c("class_name", "c_wonde_name"),
   unique_id_col = NULL
 )
 }
 \arguments{
-\item{class_list}{A data frame containing at least the columns:
-`"School name"`, `"URN"`, `"Class Name"`, and `"Pupil First Name"`.}
+\item{class_list}{A class-list data frame using configured or
+internal column names.}
 
-\item{school_name_col}{Column name for school names. Default: `"School name"`.}
+\item{establishment_cols}{Character vector of establishment
+identifiers. Defaults to `c("est_id", "est_wonde_name")`.
+All available columns are used for grouping.}
 
-\item{urn_col}{Column name for school URNs. Default: `"URN"`.}
+\item{class_cols}{Character vector of class identifiers.
+Defaults to `c("class_name", "c_wonde_name")`.
+All available columns are used for grouping.}
 
-\item{class_col}{Column name for class names. Default: `"Class Name"`.}
-
-\item{pupil_col}{Column name for pupil names (used only if no unique ID column is provided).
-Default: `"Pupil First Name"`.}
-
-\item{unique_id_col}{(Optional) Column name uniquely identifying students (e.g., `"UPN"` or `"ID"`).
-If provided and present in `class_list`, counts of students per class will use distinct values
-in this column. If `NULL` (default), each row is assumed to represent one student.}
+\item{unique_id_col}{Optional student identifier column.
+Accepts an internal key, configured name or another column
+present in the data. If NULL, each row counts as one student.
+If specified but unavailable, row counts are used.}
 }
 \value{
-A tibble with one row per class, containing:
+A tibble containing the selected establishment and class
+  identifiers, followed by:
 \describe{
-  \item{School name}{School name.}
-  \item{URN}{Unique reference number for the school.}
-  \item{Class Name}{Name of the class.}
-  \item{StudentsInClass}{Number of students in the class.}
-  \item{TotalStudentsInSchool}{Total number of students in the school.}
-  \item{PercentOfSchool}{Percentage of the school's total students in this class.}
+  \item{STUDENTS_IN_CLASS}{Number of students in the class.}
+  \item{TOTAL_STUDENTS_IN_SCHOOL}{Sum of class-level student counts
+    for the establishment.}
+  \item{PERCENT_OF_SCHOOL}{Percentage of the establishment's
+    student counts belonging to the class.}
 }
+
+All returned columns use uppercase names with underscore separators.
 }
 \description{
-Groups a class list by school and class to calculate:
+Groups a class list by one or more establishment and class identifiers
+to calculate:
 \itemize{
-  \item The total number of students in each class (class size).
-  \item The total number of students in the school.
-  \item The percentage of the school's students that belong to each class.
+  \item The number of students in each class.
+  \item The total number of students across classes in each school.
+  \item The percentage of the school's students belonging to each class.
 }
-Optionally counts unique students by ID (e.g. `"UPN"` or `"ID"`).
+
+Column names are resolved using the package's configurable
+column-name system. Multiple establishment and class grouping
+variables are supported.
+}
+\details{
+Both internal and configured column names are supported in
+`establishment_cols`, `class_cols` and `unique_id_col`.
+
+Missing grouping columns are skipped, provided at least one
+establishment and one class identifier remain.
+
+If a unique identifier is supplied, distinct values are counted
+within each class, including NA as one distinct value, consistent
+with the original function.
+
+Students appearing in multiple classes contribute separately
+to each class's count.
 }
 \examples{
 \dontrun{
 summarise_class_sizes(class_list_df)
-summarise_class_sizes(class_list_df, unique_id_col = "UPN")
+
+summarise_class_sizes(
+  class_list_df,
+  unique_id_col = "ome_id"
+)
+
+summarise_class_sizes(
+  class_list_df,
+  establishment_cols = c("est_id", "est_wonde_name"),
+  class_cols = c("class_name", "c_wonde_name")
+)
 }
 
 }

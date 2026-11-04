@@ -2,42 +2,52 @@
 % Please edit documentation in R/checks.R
 \name{detect_multiple_class_memberships}
 \alias{detect_multiple_class_memberships}
-\title{Detect students with multiple class memberships}
+\title{Detect Students with Multiple Class Memberships}
 \usage{
 detect_multiple_class_memberships(class_list_df)
 }
 \arguments{
-\item{class_list_df}{A data frame containing class list information,
-typically the output from `extract_class_list()`. It should include
-at minimum `SchoolId`, `StudentId`, `ClassId`, `ClassName`, and associated
-teacher and student details.}
+\item{class_list_df}{A data frame containing class-list information,
+typically produced by `extract_class_list()`. The following
+internal columns (or their configured equivalents) are required:
+`est_wonde_id`, `est_wonde_name`, `est_wonde_urn`,
+`s_wonde_id`, `sfn`, `sln`, `dob`, `upn` and `c_wonde_id`.}
 }
 \value{
-A data frame of students who are listed in more than one class, with teacher
-columns removed for clarity.
+A data frame containing students associated with more than one
+distinct class, with the following columns:
+\describe{
+  \item{Establishment and student fields}{The school and student
+    identifiers used for grouping, returned using their
+    configured column names.}
+  \item{classes}{Comma-separated list of unique class IDs.}
+  \item{no_classes}{Number of distinct classes associated
+    with the student.}
+}
 }
 \description{
-Identifies students who appear to belong to more than one class within the
-provided class list. The function runs a standard cleaning pipeline to ensure
-class and teacher information are consistent before detection, then filters
-for cases where the `Class Name` field contains multiple class names joined
-by commas.
+Identifies students who belong to more than one class within the
+provided class list. Students are grouped using their school
+identifiers and personal information, and the number of distinct
+classes associated with each student is calculated.
+
+Column names are resolved using the package's configurable
+column-name system.
 }
 \details{
-The function performs the following steps:
+The function:
 \enumerate{
-  \item Cleans and standardizes class names using
-        \code{\link{clean_class_names}()}.
-  \item Reduces duplicate student records to the main teacher using
-        \code{\link{reduce_to_best_teacher}()}.
-  \item Produces a summarized class list via
-        \code{\link{produce_class_lists}()}.
-  \item Filters for any records where \code{Class Name} contains a comma,
-        indicating multiple class associations.
+  \item Converts configured column names to internal names.
+  \item Groups records by school and student identifiers.
+  \item Combines unique class IDs into a comma-separated string.
+  \item Counts distinct class IDs.
+  \item Retains only students associated with more than one class.
+  \item Restores configured column names.
 }
 
-This function is typically used as part of a quality-assurance step before
-running overlap or membership consistency checks.
+Class memberships are identified using `c_wonde_id`, rather than
+class names. This avoids treating different names for the same
+class as separate memberships.
 }
 \examples{
 \dontrun{

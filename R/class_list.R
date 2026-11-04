@@ -10,6 +10,9 @@
 #' @param year_pattern Character or numeric pattern used to match student year codes
 #'   (e.g., `"7"` for Year 7 or `"8"` for Year 8).
 #' @param verbose Logical; if \code{TRUE}, prints progress.
+#' @param schools_id_column Character string specifying the column
+#'   in the supplied schools data frame containing the school
+#'   identifiers used to link schools to their Wonde extracts.
 #'
 #' @return A data frame combining all matched student, class, and teacher information
 #'   across schools, or \code{NULL} if no valid data are found.
@@ -30,7 +33,8 @@ extract_class_list <- function(WondeData,
                                maths_names,
                                maths_desc_names,
                                year_pattern,
-                               verbose = TRUE) {
+                               verbose = TRUE,
+                               schools_id_column = 'EstablishmentID') {
   
   issue_list <- data.frame(matrix(nrow = 0, ncol = 4),
                            stringsAsFactors = FALSE)
@@ -40,8 +44,8 @@ extract_class_list <- function(WondeData,
     if (verbose) message("Processing index ", index)
     
     ID <- names(WondeData)[index]
-    URN_school <- schools$URN[match(ID, schools$id)]
-    school_name <- schools$name[match(ID, schools$id)]
+    URN_school <- schools$URN[match(ID, schools[[schools_id_column]])]
+    school_name <- schools$name[match(ID, schools[[schools_id_column]])]
     school_data <- WondeData[[index]]
     
     # ----------------------------------------------------------
@@ -82,26 +86,29 @@ extract_class_list <- function(WondeData,
     # ----------------------------------------------------------
     # 2. Extract student details
     # ----------------------------------------------------------
-    StudentId <- unique(yr_students$id)
-    StudentFirstName <- as.character(yr_students$forename)
-    StudentLastName <- as.character(yr_students$surname)
-    SchoolId <- as.character(yr_students$school_id)
-    SchoolName <- as.character(yr_students$school_name)
-    EstablishmentNumber <- as.character(yr_students$school_establishment_number)
-    URN <- as.character(yr_students$school_urn)
-    DoB <- stringr::str_extract(yr_students$date_of_birth.date, "[0-9]{4}-[0-9]{2}-[0-9]{2}")
+    est_id = names(WondeData)[index]
+    urn = URN_school
+    s_wonde_id <- unique(yr_students$id)
+    sfn <- as.character(yr_students$forename)
+    sln <- as.character(yr_students$surname)
+    est_wonde_id <- as.character(yr_students$school_id)
+    est_wonde_name <- as.character(yr_students$school_name)
+    # EstablishmentNumber <- as.character(yr_students$school_establishment_number)
+    est_wonde_urn <- as.character(yr_students$school_urn)
+    dob <- stringr::str_extract(yr_students$date_of_birth.date, "[0-9]{4}-[0-9]{2}-[0-9]{2}")
     
     # Education details (UPN)
     ed_details <- school_data$education_details
-    UPN <- if (!is.null(ed_details)) {
+    upn <- if (!is.null(ed_details)) {
       ed_details$education_details.data.upn[match(StudentId, ed_details$id)]
     } else {
       NA
     }
     
     student_df <- data.frame(
-      SchoolId, SchoolName, EstablishmentNumber, URN,
-      StudentId, StudentFirstName, StudentLastName, DoB, UPN,
+      est_id,urn, est_wonde_id, est_wonde_name, #EstablishmentNumber,
+      est_wonde_urn,
+      s_wonde_id, sfn, sln, dob, upn,
       stringsAsFactors = FALSE
     )
     
@@ -170,7 +177,7 @@ extract_class_list <- function(WondeData,
     # 6. Add teacher names and clean names
     # ----------------------------------------------------------
     if (all(c("classes.data__employees.data__forename", "classes.data__employees.data__surname") %in% names(yr_class))) {
-      yr_class$TeacherName <- paste(
+      yr_class$t_full <- paste(
         yr_class$classes.data__employees.data__forename,
         yr_class$classes.data__employees.data__surname
       )
@@ -178,12 +185,12 @@ extract_class_list <- function(WondeData,
     
     rename_map <- c(
       "id" = "ID",
-      "classes.data__id" = "ClassId",
-      "classes.data__name" = "ClassName",
-      "classes.data__employees.data__id" = "TeacherId",
-      "classes.data__employees.data__surname" = "TeacherSurName",
-      "classes.data__employees.data__forename" = "TeacherForeName",
-      "classes.data__employees.data__meta.is_main_teacher" = "MainTeacher"
+      "classes.data__id" = "c_wonde_id",
+      "classes.data__name" = "c_wonde_name",
+      "classes.data__employees.data__id" = "t_wonde_ID",
+      "classes.data__employees.data__surname" = "tln",
+      "classes.data__employees.data__forename" = "tfn",
+      "classes.data__employees.data__meta.is_main_teacher" = "t_main"
     )
     names(yr_class) <- dplyr::recode(names(yr_class), !!!rename_map)
     yr_class <- unique(yr_class)
@@ -193,7 +200,7 @@ extract_class_list <- function(WondeData,
     # ----------------------------------------------------------
     final_df <- dplyr::full_join(
       student_df, yr_class,
-      by = dplyr::join_by(StudentId == ID),
+      by = dplyr::join_by(s_wonde_id == ID),
       keep = TRUE
     )
     
@@ -205,8 +212,11 @@ extract_class_list <- function(WondeData,
   # ----------------------------------------------------------
   names(out_list) <- names(WondeData)
   combined_df <- rbind_aggro(out_list)
+  combined_df$ID = NULL
   
   attr(combined_df, "issues") <- issue_list
+  combined_df = combined_df |> rename_to_configured_names()
+
   return(combined_df)
 }
 

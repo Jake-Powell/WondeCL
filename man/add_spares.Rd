@@ -2,53 +2,60 @@
 % Please edit documentation in R/class_list_functions.R
 \name{add_spares}
 \alias{add_spares}
-\title{Add spare rows to each class list}
+\title{Add Spare Rows to Each Class List}
 \usage{
 add_spares(class_list, no_spares = 3, include_spare_column = FALSE)
 }
 \arguments{
-\item{class_list}{A data frame containing a class list, typically produced by
-\code{\link{produce_class_lists}()} or \code{\link{create_school_blanks}()}.
-Must include the following columns:
-\itemize{
-  \item `School name`
-  \item `URN`
-  \item `Class Name`
-  \item `Main Teacher Name`
-  \item `Main Teacher First Name`
-  \item `Main Teacher Last Name`
-  \item `Pupil Last Name`
-  \item `Pupil First Name`
-}}
+\item{class_list}{A class-list data frame using configured or
+internal column names.}
 
-\item{no_spares}{Integer. The number of spare (blank) rows to add for each unique
-class. Defaults to `3`.}
+\item{no_spares}{Integer. Number of spare rows to add for each
+unique class combination. Defaults to 3.}
 
-\item{include_spare_column}{Logical. If `TRUE`, a column named `"Spare?"`
-is added to the output, with `"Y"` marking the spare rows. Defaults to
-`FALSE`.}
+\item{include_spare_column}{Logical. If TRUE, adds or updates
+the configured `spare` column, marking new spare rows with "Y".
+Defaults to FALSE.}
 }
 \value{
-A modified version of the input data frame with spare rows appended for each
-unique class. If `include_spare_column = TRUE`, includes an additional
-`"Spare?"` column.
+The updated class list, retaining the original column names
+and order, except that the spare indicator uses its configured
+name when `include_spare_column = TRUE`.
+
+Existing spare indicators are preserved. Newly generated spare
+rows are marked "Y" when `include_spare_column = TRUE`.
 }
 \description{
-Appends a specified number of **spare (blank)** rows to each unique class in a class list.
-The spare rows inherit key identifying fields (such as school name, URN,
-class name, and teacher information) to allow for manual data entry,
-printing, or later updates. Optionally, a `"Spare?"` column can be added to
-flag the spare entries.
+Appends a specified number of spare (blank) rows to each unique
+school, class and teacher combination in a class list.
+
+Spare rows retain available school, class and teacher information,
+while student-specific fields are left blank.
+
+Column names are resolved using the package's configurable
+column-name system, including the spare indicator.
 }
 \details{
-This function is typically used to prepare finalized or printable class lists
-with placeholder rows for late student additions. The spare
-entries are visually grouped at the end of each class when sorted.
+Schools are identified preferentially using `est_id`,
+falling back to `urn` and then `est_wonde_name`.
+
+Classes are identified preferentially using `class_name`,
+falling back to `c_wonde_name`.
+
+Spare rows retain all available school, class and teacher
+identifiers. Other character fields are blank and other
+data types are assigned NA.
+
+The spare column name is taken from
+`get_column_names()[["spare"]]`, which defaults to "SPARE".
 }
 \examples{
 \dontrun{
-# Add three spare entries per class
- class_list = WondeCL::class_list_example
+updated_list <- add_spares(
+  class_list,
+  no_spares = 3,
+  include_spare_column = TRUE
+)
 }
 
 }

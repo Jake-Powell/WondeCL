@@ -1,4 +1,4 @@
-Headers = c('EST_ID',	'EstablishmentName',	'URN',	'Category',	'SchoolType',	'Class_ID',	'Class Name',	'Teacher_ID',	'Main Teacher First Name',	'Main Teacher Last Name',	'OME_ID',	'Print ID',	'UPN',	'Pupil First Name',	'Pupil Last Name',	'DoB')
+Headers = c('EST_ID',	'EST_NAME',	'URN',	'EST_CATEGORY',	'EST_TYPE',	'CLASS_ID',	'CLASS_NAME',	'OME_ID_TEACHER',	'TEACHER_FIRST_NAME',	'TEACHER_LAST_NAME',	'OME_ID',	'PRINT_ID',	'UPN',	'STUDENT_FIRST_NAME',	'STUDENT_LAST_NAME',	'DOB')
 
 # for pupil first name we use -> https://github.com/smashew/NameDatabases/blob/master/NamesDatabases/first%20names/us.txt
 # last name -> https://gist.github.com/lasagnaphil/7667eaeddb6ed0c565f0cb653d756942

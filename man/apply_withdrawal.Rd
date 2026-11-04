@@ -2,77 +2,117 @@
 % Please edit documentation in R/withdrawing.R
 \name{apply_withdrawal}
 \alias{apply_withdrawal}
-\title{Apply withdrawn status to class list}
+\title{Apply Student Withdrawals to a Class List}
 \usage{
 apply_withdrawal(
   class_list,
   withdrawn_students,
-  school_dob_match = TRUE,
+  school_dob_match = FALSE,
   legacy_school_link = "~/Wonde/Establishment_List_ID.xlsx",
   links_category = "Primary",
   expected_years = c(2019, 2020),
   do_log = FALSE,
-  keep_grep =
-    "I want to withdraw my child from the study|No, please delete any previous data about my child",
+  reference_school_name_column = "EstablishmentName",
+  reference_school_id_column = "URN",
+  keep_grep = paste0("I want to withdraw my child from the study|",
+    "No, please delete any previous data about my child"),
   TypeOfWithdrawalColumn = "Type of withdrawal",
   FirstNameColumn = "Your child's first name",
   LastNameColumn = "Your child's surname",
   EstablishmentIDColumn = "EstablishmentID",
-  CLEstablishmentIDColumn = EstablishmentIDColumn,
+  school_id_column = "est_id",
   ...
 )
 }
 \arguments{
-\item{class_list}{Data frame of class list data}
+\item{class_list}{A data frame containing student records.
+Columns may use the configured or internal naming convention.}
 
-\item{withdrawn_students}{Data frame or file path to XLSX withdrawal data}
+\item{withdrawn_students}{A data frame containing withdrawal
+responses, or a path to an XLSX file.}
 
-\item{school_dob_match}{Logical; if `TRUE` route to legacy school+DoB method,
-  if `FALSE` route to EstablishmentID method
+\item{school_dob_match}{Logical. If TRUE, use the legacy
+school-name and date-of-birth matching method. If FALSE,
+use the establishment-identifier matching method.}
 
----- **LEGACY PARAMETERS (School + DoB method only):** ----}
+\item{legacy_school_link}{Path to the external school reference
+XLSX file used by the legacy matching method.}
 
-\item{legacy_school_link}{Path to school reference list Excel file}
+\item{links_category}{School category, retained for compatibility
+with the legacy method. Filtering is not currently applied.}
 
-\item{links_category}{School category filter (e.g., "Primary")}
+\item{expected_years}{Numeric vector of acceptable birth years
+used by the legacy date-of-birth processing function.}
 
-\item{expected_years}{Valid birth years to validate parsed DoBs}
+\item{do_log}{Logical. Whether to write a log when using
+the legacy matching method.}
 
-\item{do_log}{Logical; if TRUE writes log file `Withdrawn_students.log`
+\item{reference_school_name_column}{Column containing school
+names in the external school reference file. Used only by
+the legacy method. Defaults to "EstablishmentName".}
 
----- **CURRENT PARAMETERS (EstablishmentID method only):** ----}
+\item{reference_school_id_column}{Column containing school
+identifiers in the external reference file. Used only by
+the legacy method. Defaults to "URN". Values must match
+the class list's configured `urn` column.}
 
-\item{keep_grep}{Regex used to filter valid withdrawals}
+\item{keep_grep}{Regular expression identifying withdrawal
+responses to retain. Used by the current method.}
 
-\item{TypeOfWithdrawalColumn}{Column name describing withdrawal status/type}
+\item{TypeOfWithdrawalColumn}{Column containing the type of
+withdrawal in the withdrawal form.}
 
-\item{FirstNameColumn}{Column name for child first name}
+\item{FirstNameColumn}{Column containing the student's first
+name in the withdrawal form.}
 
-\item{LastNameColumn}{Column name for child surname}
+\item{LastNameColumn}{Column containing the student's surname
+in the withdrawal form.}
 
-\item{EstablishmentIDColumn}{Column containing establishment ID in withdrawal data}
+\item{EstablishmentIDColumn}{Column containing the school
+identifier in the withdrawal form.}
 
-\item{CLEstablishmentIDColumn}{Column containing establishment ID in class_list}
+\item{school_id_column}{Internal or configured column name
+identifying the school in the class list for the current
+matching method. Defaults to "est_id".}
 
-\item{...}{Additional arguments passed downstream to internal methods}
+\item{...}{Additional arguments passed to the selected
+internal withdrawal function.}
 }
 \value{
-List containing updated class list and withdrawal match metadata
+A list containing:
+\describe{
+  \item{class_list}{Updated class list using configured
+    column names, with matched students marked as withdrawn.}
+  \item{withdraw}{Withdrawal matching report containing
+    MatchDetail, SchoolCheck, CLASS_LIST_INDEX,
+    matchedFirstName, matchedLastName, matchedSchoolName,
+    and IGNORE_RESULT.}
+}
 }
 \description{
-Matches students in a withdrawal list to pupils in a class list and marks them as withdrawn.
+Matches withdrawal requests to students in a class list and
+updates their withdrawal status. Supports both legacy
+school-name/date-of-birth matching and current
+establishment-identifier matching.
 }
 \details{
-Two internal matching strategies are supported:
+When `school_dob_match = TRUE`, the function calls
+`.apply_withdrawal_old()`. This matches school names against
+an external reference file and uses student names and
+dates of birth to identify withdrawals.
 
-**1. School + DoB matching (legacy approach)** — for older withdrawal data without
-establishment identifiers. Matches using school name + cleaned first/surname + optional DoB
-resolution, using a layered fallback priority.
+When `school_dob_match = FALSE`, the function calls
+`.apply_withdrawal_new()`. This matches students using
+an establishment identifier and student names.
 
-**2. EstablishmentID matching (current approach)** — for newer data where withdrawal
-records contain an establishment/school identifier column instead of DoB.
+Both methods preserve existing withdrawal statuses and
+create the configured withdrawal column if it is missing.
+Only uniquely matched students are marked as withdrawn.
 
-The user controls routing using `school_dob_match`.
+The function does not require a Wonde student identifier.
+It marks withdrawals but does not automatically remove
+identifying information. Use
+`clear_withdrawn_student_data()` separately for that purpose.
 }
 \seealso{
 Other withdrawing: 

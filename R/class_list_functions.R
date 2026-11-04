@@ -1,431 +1,989 @@
-#' Reduce duplicated student-teacher records to best (main) teacher
+
+#' Reduce Duplicated Student-Teacher Records to the Best Teacher
 #'
 #' @description
-#' Filters a class list data frame to keep only one record per student,
-#' prioritizing those associated with the main teacher. If multiple records
-#' exist for the same student, the record marked with `MainTeacher == TRUE`
-#' is retained. Students without a main teacher entry are kept once using
-#' their first available record.
+#' Filters a class list data frame to prioritise records associated with
+#' the main teacher for each student. Where a student has one or more
+#' records marked as the main teacher, only those records are retained.
+#' Where no main teacher is identified, all existing teacher records
+#' for that student are retained.
 #'
-#' @param data A data frame containing at least the columns `StudentId` and
-#'   `MainTeacher`. The `MainTeacher` column should be logical (`TRUE` for
-#'   the main teacher, `FALSE` otherwise).
+#' The function supports the package's configurable column-name system,
+#' automatically converting input column names to their internal
+#' equivalents before processing and restoring the configured names
+#' in the returned data frame.
+#'
+#' @param data A data frame containing student-teacher records.
+#'   The following columns are required, using either their internal
+#'   names or the currently configured column names:
+#'   \describe{
+#'     \item{est_wonde_id}{Wonde establishment identifier
+#'       (default: `EST_WONDE_ID`).}
+#'     \item{s_wonde_id}{Wonde student identifier
+#'       (default: `STUDENT_WONDE_ID`).}
+#'     \item{t_main}{Indicator of whether the teacher is the main
+#'       teacher (default: `TEACHER_MAIN`).}
+#'   }
+#'   The main teacher indicator should contain logical values or
+#'   values that can be converted to logical using `as.logical()`.
 #'
 #' @return
-#' A data frame reduced to one record per student, preferring main teacher
-#' entries where available.
+#' A data frame containing the retained student-teacher records,
+#' with column names restored to the package's configured naming
+#' convention.
 #'
-#' @details
-#' This function performs the following steps:
-#' \enumerate{
-#'   \item Replaces any missing (`NA`) values in `MainTeacher` with `FALSE`.
-#'   \item Splits the dataset into two subsets: one for main teachers and one
-#'         for other teachers.
-#'   \item For each student, keeps only the main teacher record if available;
-#'         otherwise keeps the first non-main-teacher record.
-#'   \item Warns if the total number of unique students decreases after
-#'         filtering (which may indicate inconsistent or malformed data).
+#' For each unique establishment-student combination:
+#' \itemize{
+#'   \item If one or more main-teacher records exist, all such records
+#'         are retained and non-main-teacher records are removed.
+#'   \item If no main-teacher record exists, all existing records
+#'         for that student are retained.
 #' }
 #'
-#' The function is typically used after joining student-class-teacher data
-#' and before producing summary class lists with functions such as
-#' `produce_class_lists()`.
+#' @details
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Converts configured column names to the package's internal
+#'         naming convention using `rename_to_internal_names()`.
+#'   \item Checks that the required establishment, student and main
+#'         teacher columns are present.
+#'   \item Replaces missing (`NA`) main teacher indicators with `FALSE`.
+#'   \item Identifies records where the teacher is marked as the main
+#'         teacher.
+#'   \item Identifies students using the combination of establishment
+#'         ID and student ID, preventing records from different schools
+#'         being treated as belonging to the same student.
+#'   \item Retains main-teacher records where available, otherwise
+#'         retaining the student's existing non-main-teacher records.
+#'   \item Checks that all original establishment-student combinations
+#'         remain represented, issuing a warning if any are lost.
+#'   \item Converts the column names back to the configured naming
+#'         convention using `rename_to_configured_names()`.
+#' }
+#'
+#' The function operates at the student level rather than the class
+#' level. Consequently, if a student has a main teacher in one class,
+#' non-main-teacher records from their other classes may also be removed.
+#'
+#' The function does not guarantee a single record per student where
+#' multiple main teachers exist or where no main teacher is identified.
+#'
+#' This function is typically used after joining student, class and
+#' teacher data, and before producing summary class lists using
+#' functions such as `produce_class_lists()`.
 #'
 #' @examples
 #' \dontrun{
+#' # Reduce student-teacher records using the default column names
 #' reduced <- reduce_to_best_teacher(class_list_df)
+#'
+#' # Change the configured naming convention
+#' set_column_names(
+#'   s_wonde_id = "PUPIL_ID",
+#'   t_main = "IS_MAIN_TEACHER"
+#' )
+#'
+#' # The function automatically uses the updated column names
+#' reduced <- reduce_to_best_teacher(class_list_df)
+#'
+#' # Restore the default configuration
+#' reset_column_names()
 #' }
+#'
+#' @family class_list
 #'
 #' @export
 reduce_to_best_teacher <- function(data) {
-  # Replace missing MainTeacher with FALSE
-  data$MainTeacher[is.na(data$MainTeacher)] <- FALSE
   
-  # Split by main teacher flag
-  to_keep <- data[which(as.logical(data$MainTeacher)), ]
-  to_decide <- data[-which(as.logical(data$MainTeacher)), ]
+  # Convert to internal column names
+  data <- rename_to_internal_names(data)
   
-  # Identify students already represented by a main teacher
-  have_main_index <- which(to_decide$StudentId %in% to_keep$StudentId)
+  # -------------------------------------------------------------------
+  # 1. Check required columns
+  # -------------------------------------------------------------------
+  required_cols <- c(
+    "est_wonde_id",
+    "s_wonde_id",
+    "t_main"
+  )
   
-  # Keep all main teachers + students not yet represented
-  data_new <- rbind(to_keep, to_decide[-have_main_index, ])
+  missing_cols <- setdiff(required_cols, names(data))
   
-  # Safety check: unique student count consistency
-  if (length(unique(data$StudentId)) != length(unique(data_new$StudentId))) {
-    warning("Reducing teacher has caused student loss!")
+  if (length(missing_cols) > 0) {
+    stop(
+      "Missing required columns in data: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
   }
   
-  return(data_new)
+  # -------------------------------------------------------------------
+  # 2. Replace missing main teacher flags with FALSE
+  # -------------------------------------------------------------------
+  data$t_main[is.na(data$t_main)] <- FALSE
+  
+  # -------------------------------------------------------------------
+  # 3. Identify students with a main teacher
+  # -------------------------------------------------------------------
+  main_index <- which(as.logical(data$t_main))
+  
+  to_keep <- data[main_index, , drop = FALSE]
+  
+  other_index <- setdiff(seq_len(nrow(data)), main_index)
+  
+  to_decide <- data[other_index, , drop = FALSE]
+  
+  # -------------------------------------------------------------------
+  # 4. Remove non-main teacher records where a main teacher exists
+  # -------------------------------------------------------------------
+  student_key <- paste(
+    data$est_wonde_id,
+    data$s_wonde_id,
+    sep = "\r"
+  )
+  
+  main_student_keys <- unique(student_key[main_index])
+  
+  keep_other <- !student_key[other_index] %in% main_student_keys
+  
+  data_new <- rbind(
+    to_keep,
+    to_decide[keep_other, , drop = FALSE]
+  )
+  
+  # -------------------------------------------------------------------
+  # 5. Check unique student counts
+  # -------------------------------------------------------------------
+  original_students <- unique(student_key)
+  
+  remaining_students <- unique(
+    paste(
+      data_new$est_wonde_id,
+      data_new$s_wonde_id,
+      sep = "\r"
+    )
+  )
+  
+  if (!setequal(original_students, remaining_students)) {
+    warning(
+      "Reducing teacher has caused student loss!",
+      call. = FALSE
+    )
+  }
+  
+  # -------------------------------------------------------------------
+  # 6. Convert back to configured column names
+  # -------------------------------------------------------------------
+  rename_to_configured_names(data_new)
 }
 
 
-#' Clean and standardize class names in school data
+#' Clean Class Names
 #'
-#' @description
-#' Attempts to clean, fill, and standardize class identifiers and names within
-#' a school dataset. Missing or inconsistent class names are replaced with a
-#' default name (e.g. `"Reception"`). Classes that contain exactly the same
-#' group of students are merged into a single logical class.
+#' Cleans class names, assigns default class information to students
+#' without a class, and identifies classes containing identical students
+#' within the same school.
 #'
-#' @param data A data frame containing at least the columns `SchoolId`,
-#'   `StudentId`, `ClassId`, and `ClassName`.
+#' @param data A class list dataframe.
+#' @param default_class_name Default name for missing or merged classes.
+#'   Defaults to "Reception".
 #'
-#' @param default_class_name Character string specifying the class name to use
-#'   when no class name or ID is available. Default is `"Reception"`.
-#'
-#' @return
-#' A data frame identical to the input `data` but with two new columns added:
-#' \describe{
-#'   \item{`ClassId_use`}{A cleaned class identifier, with missing values
-#'   replaced by `<SchoolId>CLASS`.}
-#'   \item{`class_name_use`}{A standardized, title-cased class name suitable for
-#'   downstream processing.}
-#' }
-#'
-#' @details
-#' The function performs the following operations:
-#' \enumerate{
-#'   \item Extracts class-related fields (`SchoolId`, `StudentId`, `ClassId`,
-#'         `ClassName`) from the input data.
-#'   \item Replaces missing `ClassId` and `ClassName` values with the
-#'         `default_class_name` and a synthetic class ID.
-#'   \item Checks whether students belong to multiple classes and identifies
-#'         sets of classes that share exactly the same student membership.
-#'   \item If a set of identical classes belongs entirely to one school and that
-#'         school has no other classes, merges them into a single class named
-#'         with the `default_class_name`.
-#'   \item Produces two new cleaned columns, `ClassId_use` and
-#'         `class_name_use`, leaving the original data unchanged.
-#' }
-#'
-#' This function is designed to be used early in the class list cleaning
-#' workflow, typically followed by `reduce_to_best_teacher()` and
-#' `produce_class_lists()`.
-#'
-#' @examples
-#' \dontrun{
-#' cleaned <- clean_class_names(class_list_df, default_class_name = "Year 7")
-#' head(cleaned$class_name_use)
-#' }
+#' @return A dataframe with additional configured columns
+#'   CLASS_ID and CLASS_NAME.
 #'
 #' @export
 clean_class_names <- function(data, default_class_name = "Reception") {
-  # Extract class-related info
-  required_cols <- c("SchoolId", "StudentId", "ClassId", "ClassName")
-  missing_cols <- required_cols[!required_cols %in% names(data)]
+  
+  # Convert to internal column names
+  data <- rename_to_internal_names(data)
+  
+  # -------------------------------------------------------------------
+  # 1. Extract class-related information
+  # -------------------------------------------------------------------
+  required_cols <- c(
+    "est_wonde_id",
+    "s_wonde_id",
+    "c_wonde_id",
+    "c_wonde_name"
+  )
+  
+  missing_cols <- setdiff(required_cols, names(data))
+  
   if (length(missing_cols) > 0) {
-    stop("Missing required columns in data: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "Missing required columns in data: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
   }
   
-  classes <- data[, match(required_cols, names(data))] |> as.data.frame()
+  classes <- data[, required_cols, drop = FALSE]
   
-  # Fill missing class IDs and names
-  no_class_ID_index <- which(is.na(classes$ClassId))
-  classes$ClassId[no_class_ID_index] <- paste0(classes$SchoolId[no_class_ID_index], "CLASS")
-  classes$ClassName[no_class_ID_index] <- default_class_name
+  # -------------------------------------------------------------------
+  # 2. Fill missing class IDs and names
+  # -------------------------------------------------------------------
+  no_class_ID_index <- which(is.na(classes$c_wonde_id))
   
-  # Count classes per student
-  no_class_stud <- classes |>
-    dplyr::group_by(StudentId) |>
-    dplyr::summarise(
-      no_class = length(unique(ClassId)),
-      classes = paste0(unique(ClassId), collapse = ", ")
-    ) |> as.data.frame()
+  classes$c_wonde_id[no_class_ID_index] <- paste0(
+    classes$est_wonde_id[no_class_ID_index],
+    "CLASS"
+  )
   
-  # Identify students in multiple identical classes
-  mult <- unique(no_class_stud$classes[grep(", ", no_class_stud$classes)])
-  same_students <- lapply(mult, function(classes_string) {
-    class_vect <- stringr::str_split(classes_string, ", ") |> unlist()
-    students <- lapply(class_vect, function(cla)
-      unique(classes$StudentId[classes$ClassId == cla])) |>
-      unlist() |> table()
-    all(students == length(class_vect))
-  }) |> unlist()
+  classes$c_wonde_name[no_class_ID_index] <- default_class_name
   
-  to_merge <- mult[same_students]
-  if (length(to_merge) > 0) {
-    for (i in seq_along(to_merge)) {
-      class_vect <- stringr::str_split(to_merge[i], ", ") |> unlist()
-      classes_index <- which(classes$ClassId %in% class_vect)
+  # -------------------------------------------------------------------
+  # 3. Identify classes with identical student memberships
+  #    separately within each school
+  # -------------------------------------------------------------------
+  school_ids <- unique(classes$est_wonde_id)
+  
+  for (school_id in school_ids) {
+    
+    # Restrict to the current school
+    school_index <- which(
+      !is.na(classes$est_wonde_id) &
+        classes$est_wonde_id == school_id
+    )
+    
+    school_classes <- classes[school_index, , drop = FALSE]
+    
+    class_ids <- unique(school_classes$c_wonde_id)
+    
+    # Nothing to compare if there is only one class
+    if (length(class_ids) < 2) next
+    
+    # Get the unique student membership of each class
+    class_students <- lapply(class_ids, function(class_id) {
       
-      schoolID <- unique(classes$SchoolId[classes_index])
-      school_classes <- unique(classes$ClassId[classes$SchoolId == schoolID])
-      
-      if (setequal(class_vect, school_classes)) {
-        classes$ClassName[classes_index] <- default_class_name
-      }
+      unique(
+        school_classes$s_wonde_id[
+          school_classes$c_wonde_id == class_id
+        ]
+      )
+    })
+    
+    names(class_students) <- class_ids
+    
+    # Check whether every class contains the same set of students
+    identical_memberships <- all(
+      vapply(
+        class_students[-1],
+        function(students) {
+          setequal(students, class_students[[1]])
+        },
+        logical(1)
+      )
+    )
+    
+    if (identical_memberships) {
+      classes$c_wonde_name[school_index] <- default_class_name
     }
   }
   
-  # Add cleaned columns
-  data$ClassId_use <- classes$ClassId
-  data$class_name_use <- classes$ClassName |>
+  # -------------------------------------------------------------------
+  # 4. Add cleaned columns using internal names
+  # -------------------------------------------------------------------
+  data$class_id <- classes$c_wonde_id
+  
+  data$class_name <- classes$c_wonde_name |>
     stringr::str_remove("[A-Za-z ]: ") |>
     stringr::str_remove("[A-Za-z ] - ") |>
     stringr::str_to_title()
   
-  return(data)
+  # -------------------------------------------------------------------
+  # 5. Convert back to configured column names
+  # -------------------------------------------------------------------
+  rename_to_configured_names(data)
 }
 
 
-#' Produce final formatted class lists from cleaned student data
+#' Produce Consolidated Class Lists
 #'
 #' @description
-#' Aggregates cleaned student, class, and teacher data into a single
-#' standardized class list suitable for reporting or export. Each student
-#' appears once per school, with their associated class, teacher, and unique
-#' identifiers. Default values are used for missing teacher names, and student
-#' names are converted to title case.
+#' Produces a consolidated class list by aggregating student and class
+#' information and selecting one teacher record per student.
 #'
-#' @param data A data frame containing student and class information. Must
-#'   include at least the columns `SchoolId`, `StudentId`, `SchoolName`, `URN`,
-#'   the class name column specified by `class_name_column`, and teacher and
-#'   student name fields such as `TeacherName`, `TeacherForeName`,
-#'   `TeacherSurName`, `StudentFirstName`, `StudentLastName`, `DoB`, and `UPN`.
+#' The function supports the package's configurable column-name system,
+#' converting input columns to internal names before processing and
+#' restoring configured names in the output.
 #'
-#' @param class_name_column Character string specifying the column to use for
-#'   class names. Default is `"ClassName"`, but `"class_name_use"` is
-#'   recommended if using `clean_class_names()`.
+#' @param data A data frame containing student, class and teacher
+#'   information. Required columns include establishment identifiers,
+#'   student identifiers, student names, date of birth, UPN, class
+#'   name and teacher details.
 #'
-#' @param default_teacher Character string giving the default main teacher name
-#'   for records with missing teacher information. Default is `"Reception teacher"`.
+#' @param class_name_column Character string specifying the class-name
+#'   column to use. Accepts an internal column key or its configured
+#'   name. Defaults to `"class_name"`.
 #'
-#' @param default_teacher_FN Character string giving the default teacher first
-#'   name. Default is `"Reception"`.
+#' @param default_teacher Character string used when the selected
+#'   teacher's full name is missing. Defaults to `"Reception teacher"`.
 #'
-#' @param default_teacher_SN Character string giving the default teacher surname.
-#'   Default is `"Teacher"`.
+#' @param default_teacher_FN Character string used when the selected
+#'   teacher's first name is missing. Defaults to `"Reception"`.
+#'
+#' @param default_teacher_SN Character string used when the selected
+#'   teacher's surname is missing. Defaults to `"Teacher"`.
 #'
 #' @return
-#' A data frame containing one row per student with the following columns:
-#' \describe{
-#'   \item{`School name`}{The school name.}
-#'   \item{`URN`}{Unique reference number for the school.}
-#'   \item{`Class Name`}{The class name used in downstream processing.}
-#'   \item{`Main Teacher Name`}{Teacher responsible for the class, with defaults
-#'   used if missing.}
-#'   \item{`Pupil First Name`}{The student's first name (title-cased).}
-#'   \item{`Pupil Last Name`}{The student's surname (title-cased).}
-#'   \item{`DoB`}{The student's date of birth.}
-#'   \item{`UPN`}{The unique pupil number or ID if available.}
-#'   \item{`Main Teacher First Name`}{The main teacher's first name.}
-#'   \item{`Main Teacher Last Name`}{The main teacher's surname.}
+#' A data frame containing one row per unique establishment-student
+#' combination, including:
+#' \itemize{
+#'   \item Establishment identifiers and school information.
+#'   \item Consolidated class names.
+#'   \item Student names, date of birth and UPN.
+#'   \item Selected teacher's full name, first name and surname.
 #' }
 #'
+#' Column names are returned using the package's configured naming
+#' convention.
+#'
 #' @details
-#' This function is typically the final step in the class list processing
-#' pipeline, after functions such as `clean_class_names()` and
-#' `reduce_to_best_teacher()`. It merges multiple records per student into
-#' single entries, applies formatting and default values, and returns a clean,
-#' human-readable data frame.
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Converts input column names to the internal naming convention.
+#'   \item Validates the required columns and selected class-name field.
+#'   \item Groups records by establishment ID and Wonde student ID.
+#'   \item Aggregates student information and all unique class names.
+#'   \item Selects one teacher record per student, prioritising
+#'     records marked as the main teacher. Where multiple records have
+#'     equal priority, the first record is selected.
+#'   \item Retains the selected teacher's full name, first name and
+#'     surname together.
+#'   \item Replaces missing teacher name fields with the specified defaults.
+#'   \item Converts student names to title case and sorts the output.
+#'   \item Restores the configured column names.
+#' }
+#'
+#' Class information is aggregated independently of teacher selection.
+#' Students assigned to multiple classes therefore retain all unique
+#' class names, even though only one teacher is reported.
+#'
+#' Teacher selection is performed within each establishment using
+#' the combination of `est_wonde_id` and `s_wonde_id`.
+#'
+#' This function is typically used after `clean_class_names()` and
+#' `reduce_to_best_teacher()`.
 #'
 #' @examples
 #' \dontrun{
-#' final_list <- produce_class_lists(
-#'   data = cleaned_data,
-#'   class_name_column = "class_name_use"
+#' class_list <- produce_class_lists(data)
+#'
+#' class_list <- produce_class_lists(
+#'   data,
+#'   class_name_column = "CLASS_WONDE_NAME"
 #' )
-#' head(final_list)
 #' }
 #'
+#' @importFrom rlang .data
+#'
+#' @family class_list
 #' @export
-produce_class_lists <- function(data, class_name_column = 'ClassName',
-                                default_teacher = 'Reception teacher',
-                                default_teacher_FN = 'Reception',
-                                default_teacher_SN = 'Teacher'){
+produce_class_lists <- function(
+    data,
+    class_name_column = "class_name",
+    default_teacher = "Reception teacher",
+    default_teacher_FN = "Reception",
+    default_teacher_SN = "Teacher") {
   
-  # Need columns: School name, URN, Class Name, Main Teacher Name, Pupil First Name, Pupil Last Name, DOB, UPN
+  # -------------------------------------------------------------------
+  # 1. Convert to internal column names
+  # -------------------------------------------------------------------
+  data <- rename_to_internal_names(data)
   
-  data$school_pupil = paste0(data$SchoolId, '---', data$StudentId)
-  format = data |> dplyr::group_by(school_pupil) |>
-    dplyr::summarise(SchoolName = paste0(SchoolName |> unique(), collapse = ', '),
-                     URN = paste0(URN |> unique(), collapse = ', '),
-                     ClassName = paste0(.data[[class_name_column]] |> unique(), collapse = ', '),
-                     TeacherName = (TeacherName |> sort())[1],
-                     StudentFirstName = paste0(StudentFirstName |> unique(), collapse = ', '),
-                     StudentLastName = paste0(StudentLastName |> unique(), collapse = ', '),
-                     DoB =  paste0(DoB |> unique(), collapse = ', '),
-                     UPN =  paste0(UPN |> unique(), collapse = ', '),
-                     TeacherFirstName = (TeacherForeName)[1],
-                     TeacherSurName = (TeacherSurName)[1]
-    ) |> as.data.frame()
-  format$TeacherName[is.na(format$TeacherName)] = default_teacher
-  format$TeacherFirstName[is.na(format$TeacherFirstName)] = default_teacher_FN
-  format$TeacherSurName[is.na(format$TeacherSurName)] = default_teacher_SN
+  # Resolve class-name column
+  cols <- get_column_names()
   
-  format$StudentFirstName = format$StudentFirstName |> stringr::str_to_title()
-  format$StudentLastName = format$StudentLastName |> stringr::str_to_title()
+  if (class_name_column %in% names(cols)) {
+    class_col <- class_name_column
+  } else if (class_name_column %in% unname(cols)) {
+    class_col <- names(cols)[match(class_name_column, unname(cols))]
+  } else {
+    stop(
+      "Unknown class_name_column: ",
+      class_name_column,
+      call. = FALSE
+    )
+  }
   
+  # -------------------------------------------------------------------
+  # 2. Validate required columns
+  # -------------------------------------------------------------------
+  required_cols <- c(
+    "est_id",
+    "est_wonde_id",
+    "est_wonde_name",
+    "est_wonde_urn",
+    "s_wonde_id",
+    "sfn",
+    "sln",
+    "dob",
+    "upn",
+    "t_full",
+    "tfn",
+    "tln",
+    class_col
+  )
   
-  combo = paste0(format$SchoolName,'---', format$ClassName, '---', format$StudentLastName, format$StudentFirstName)
-  format = format[order(combo),]
-  names(format) =  c('ID','School name', 'URN', 'Class Name', 'Main Teacher Name',
-                     'Pupil First Name', 'Pupil Last Name', 'DoB', 'UPN',
-                     'Main Teacher First Name', 'Main Teacher Last Name')
+  missing_cols <- setdiff(required_cols, names(data))
   
-  format[,-1]
+  if (length(missing_cols) > 0) {
+    stop(
+      "Missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  
+  # -------------------------------------------------------------------
+  # 3. Helper functions
+  # -------------------------------------------------------------------
+  
+  collapse_unique <- function(x) {
+    
+    x <- unique(as.character(x))
+    x <- x[!is.na(x) & nzchar(trimws(x))]
+    
+    if (length(x) == 0) {
+      return(NA_character_)
+    }
+    
+    paste(x, collapse = ", ")
+  }
+  
+  first_valid <- function(x) {
+    
+    valid <- which(
+      !is.na(x) & nzchar(trimws(as.character(x)))
+    )
+    
+    if (length(valid) == 0) {
+      return(NA_character_)
+    }
+    
+    as.character(x[valid[1]])
+  }
+  
+  # -------------------------------------------------------------------
+  # 4. Aggregate student and class information
+  # -------------------------------------------------------------------
+  student_info <- data |>
+    dplyr::group_by(est_id, est_wonde_id, s_wonde_id) |>
+    dplyr::summarise(
+      est_wonde_name = first_valid(est_wonde_name),
+      est_wonde_urn = first_valid(est_wonde_urn),
+      
+      class_name = collapse_unique(.data[[class_col]]),
+      
+      sfn = first_valid(sfn),
+      sln = first_valid(sln),
+      dob = first_valid(dob),
+      upn = first_valid(upn),
+      
+      .groups = "drop"
+    )
+  
+  # -------------------------------------------------------------------
+  # 5. Select one teacher record per student
+  # -------------------------------------------------------------------
+  
+  # Create main-teacher indicator
+  if ("t_main" %in% names(data)) {
+    main <- as.logical(data$t_main)
+    main[is.na(main)] <- FALSE
+  } else {
+    main <- rep(FALSE, nrow(data))
+  }
+  
+  # Prioritise main teachers; preserve input order for ties
+  data$.teacher_priority <- !main
+  data$.original_row <- seq_len(nrow(data))
+  
+  teacher_info <- data |>
+    dplyr::arrange(.teacher_priority, .original_row) |>
+    dplyr::group_by(est_wonde_id, s_wonde_id) |>
+    dplyr::slice_head(n = 1) |>
+    dplyr::ungroup() |>
+    dplyr::select(
+      est_wonde_id,
+      s_wonde_id,
+      t_full,
+      tfn,
+      tln
+    )
+  
+  # -------------------------------------------------------------------
+  # 6. Join the selected teacher to the aggregated student information
+  # -------------------------------------------------------------------
+  format <- student_info |>
+    dplyr::left_join(
+      teacher_info,
+      by = c("est_wonde_id", "s_wonde_id")
+    )
+  
+  # -------------------------------------------------------------------
+  # 7. Replace missing teacher names
+  # -------------------------------------------------------------------
+  is_missing <- function(x) {
+    is.na(x) | !nzchar(trimws(as.character(x)))
+  }
+  
+  format$t_full[is_missing(format$t_full)] <- default_teacher
+  format$tfn[is_missing(format$tfn)] <- default_teacher_FN
+  format$tln[is_missing(format$tln)] <- default_teacher_SN
+  
+  # -------------------------------------------------------------------
+  # 8. Format student names
+  # -------------------------------------------------------------------
+  format$sfn <- stringr::str_to_title(format$sfn)
+  format$sln <- stringr::str_to_title(format$sln)
+  
+  # -------------------------------------------------------------------
+  # 9. Sort final class list
+  # -------------------------------------------------------------------
+  format <- format |>
+    dplyr::arrange(
+      est_wonde_name,
+      class_name,
+      sln,
+      sfn
+    )
+  
+  # -------------------------------------------------------------------
+  # 10. Select and order output columns
+  # -------------------------------------------------------------------
+  format <- format |>
+    dplyr::select(
+      est_id,
+      est_wonde_name,
+      est_wonde_urn,
+      class_name,
+      t_full,
+      sfn,
+      sln,
+      dob,
+      upn,
+      tfn,
+      tln
+    )
+  
+  # -------------------------------------------------------------------
+  # 11. Restore configured column names
+  # -------------------------------------------------------------------
+  rename_to_configured_names(format)
 }
 
 
-#' Add spare rows to each class list
+
+
+#' Add Spare Rows to Each Class List
 #'
 #' @description
-#' Appends a specified number of **spare (blank)** rows to each unique class in a class list.
-#' The spare rows inherit key identifying fields (such as school name, URN,
-#' class name, and teacher information) to allow for manual data entry,
-#' printing, or later updates. Optionally, a `"Spare?"` column can be added to
-#' flag the spare entries.
+#' Appends a specified number of spare (blank) rows to each unique
+#' school, class and teacher combination in a class list.
 #'
-#' @param class_list A data frame containing a class list, typically produced by
-#'   \code{\link{produce_class_lists}()} or \code{\link{create_school_blanks}()}.
-#'   Must include the following columns:
-#'   \itemize{
-#'     \item `School name`
-#'     \item `URN`
-#'     \item `Class Name`
-#'     \item `Main Teacher Name`
-#'     \item `Main Teacher First Name`
-#'     \item `Main Teacher Last Name`
-#'     \item `Pupil Last Name`
-#'     \item `Pupil First Name`
-#'   }
+#' Spare rows retain available school, class and teacher information,
+#' while student-specific fields are left blank.
 #'
-#' @param no_spares Integer. The number of spare (blank) rows to add for each unique
-#'   class. Defaults to `3`.
+#' Column names are resolved using the package's configurable
+#' column-name system, including the spare indicator.
 #'
-#' @param include_spare_column Logical. If `TRUE`, a column named `"Spare?"`
-#'   is added to the output, with `"Y"` marking the spare rows. Defaults to
-#'   `FALSE`.
+#' @param class_list A class-list data frame using configured or
+#'   internal column names.
+#' @param no_spares Integer. Number of spare rows to add for each
+#'   unique class combination. Defaults to 3.
+#' @param include_spare_column Logical. If TRUE, adds or updates
+#'   the configured `spare` column, marking new spare rows with "Y".
+#'   Defaults to FALSE.
 #'
 #' @return
-#' A modified version of the input data frame with spare rows appended for each
-#' unique class. If `include_spare_column = TRUE`, includes an additional
-#' `"Spare?"` column.
+#' The updated class list, retaining the original column names
+#' and order, except that the spare indicator uses its configured
+#' name when `include_spare_column = TRUE`.
+#'
+#' Existing spare indicators are preserved. Newly generated spare
+#' rows are marked "Y" when `include_spare_column = TRUE`.
 #'
 #' @details
-#' This function is typically used to prepare finalized or printable class lists
-#' with placeholder rows for late student additions. The spare
-#' entries are visually grouped at the end of each class when sorted.
+#' Schools are identified preferentially using `est_id`,
+#' falling back to `urn` and then `est_wonde_name`.
 #'
+#' Classes are identified preferentially using `class_name`,
+#' falling back to `c_wonde_name`.
+#'
+#' Spare rows retain all available school, class and teacher
+#' identifiers. Other character fields are blank and other
+#' data types are assigned NA.
+#'
+#' The spare column name is taken from
+#' `get_column_names()[["spare"]]`, which defaults to "SPARE".
 #'
 #' @examples
 #' \dontrun{
-#' # Add three spare entries per class
-#'  class_list = WondeCL::class_list_example
-#   updated_list = add_spares(class_list,no_spares = 3,include_spare_column = T)
+#' updated_list <- add_spares(
+#'   class_list,
+#'   no_spares = 3,
+#'   include_spare_column = TRUE
+#' )
 #' }
 #'
 #' @export
-add_spares <- function(class_list, no_spares = 3, include_spare_column = FALSE) {
-  no_col <- ncol(class_list)
-  original_size <- nrow(class_list)
-  care <- c("School name", "URN", "Class Name", "Main Teacher Name",
-            "Main Teacher First Name", "Main Teacher Last Name")
+add_spares <- function(
+    class_list,
+    no_spares = 3,
+    include_spare_column = FALSE) {
   
-  # Build unique identifiers for each class
-  school_class <- ""
-  for (ii in seq_along(care)) {
-    school_class <- paste0(school_class, "---", class_list[[care[ii]]])
+  # ------------------------------------------------------------
+  # 1. Validate arguments
+  # ------------------------------------------------------------
+  if (!is.numeric(no_spares) ||
+      length(no_spares) != 1L ||
+      is.na(no_spares) ||
+      !is.finite(no_spares) ||
+      no_spares < 0 ||
+      no_spares != floor(no_spares)) {
+    
+    stop(
+      "no_spares must be a single non-negative integer.",
+      call. = FALSE
+    )
   }
-  school_class <- stringr::str_remove(school_class, "^---") |> unique()
   
-  split <- stringr::str_split(school_class, "---")
-  index <- match(care, names(class_list))
+  if (!is.logical(include_spare_column) ||
+      length(include_spare_column) != 1L ||
+      is.na(include_spare_column)) {
+    
+    stop(
+      "include_spare_column must be TRUE or FALSE.",
+      call. = FALSE
+    )
+  }
   
-  # Append spare (blank) rows for each unique class
-  for (i in seq_along(school_class)) {
-    to_add <- rep("", no_col)
-    for (ii in seq_along(care)) to_add[index[ii]] <- split[[i]][ii]
-    for (y in seq_len(no_spares)) {
-      class_list[nrow(class_list) + 1, ] <- to_add
+  # ------------------------------------------------------------
+  # 2. Resolve column configuration
+  # ------------------------------------------------------------
+  spare_col <- get_column_names()[["spare"]]
+  
+  original_names <- names(class_list)
+  
+  class_list <- rename_to_internal_names(class_list)
+  
+  internal_names_at_start <- names(class_list)
+  
+  original_size <- nrow(class_list)
+  
+  # ------------------------------------------------------------
+  # 3. Select school identifier
+  # ------------------------------------------------------------
+  if ("est_id" %in% names(class_list)) {
+    
+    school_col <- "est_id"
+    
+  } else if ("urn" %in% names(class_list)) {
+    
+    school_col <- "urn"
+    
+  } else if ("est_wonde_name" %in% names(class_list)) {
+    
+    school_col <- "est_wonde_name"
+    
+  } else {
+    
+    stop(
+      "Missing school identifier. Requires est_id, ",
+      "urn or est_wonde_name.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 4. Select class identifier
+  # ------------------------------------------------------------
+  if ("class_name" %in% names(class_list)) {
+    
+    class_col <- "class_name"
+    
+  } else if ("c_wonde_name" %in% names(class_list)) {
+    
+    class_col <- "c_wonde_name"
+    
+  } else {
+    
+    stop(
+      "Missing class identifier. Requires class_name ",
+      "or c_wonde_name.",
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 5. Validate student name columns
+  # ------------------------------------------------------------
+  required_cols <- c("sfn", "sln")
+  
+  missing_cols <- setdiff(
+    required_cols,
+    names(class_list)
+  )
+  
+  if (length(missing_cols) > 0L) {
+    stop(
+      "Missing required student columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 6. Identify fields to retain in spare rows
+  # ------------------------------------------------------------
+  care <- intersect(
+    c(
+      "est_id",
+      "est_wonde_id",
+      "est_wonde_name",
+      "est_wonde_urn",
+      "urn",
+      "class_id",
+      "class_name",
+      "c_wonde_name",
+      "c_wonde_id",
+      "t_full",
+      "tfn",
+      "tln",
+      "t_wonde_id",
+      "t_main"
+    ),
+    names(class_list)
+  )
+  
+  # Keep the original grouping behaviour:
+  # one set of spares per unique school/class/teacher combination.
+  school_class <- unique(
+    class_list[, care, drop = FALSE]
+  )
+  
+  # ------------------------------------------------------------
+  # 7. Generate spare rows
+  # ------------------------------------------------------------
+  if (nrow(school_class) > 0L && no_spares > 0L) {
+    
+    n_new <- nrow(school_class) * no_spares
+    
+    # Preserve existing column types
+    spare_rows <- class_list[
+      rep(NA_integer_, n_new),
+      ,
+      drop = FALSE
+    ]
+    
+    # Blank student-specific character fields
+    for (col in names(spare_rows)) {
+      
+      if (!col %in% care &&
+          is.character(spare_rows[[col]])) {
+        
+        spare_rows[[col]] <- rep("", n_new)
+      }
+    }
+    
+    # Repeat school/class/teacher fields
+    for (col in care) {
+      
+      spare_rows[[col]] <- rep(
+        school_class[[col]],
+        each = no_spares
+      )
+    }
+    
+    class_list <- rbind(
+      class_list,
+      spare_rows
+    )
+  }
+  
+  # ------------------------------------------------------------
+  # 8. Add or update the configured spare indicator
+  # ------------------------------------------------------------
+  is_spare <- seq_len(nrow(class_list)) > original_size
+  
+  if (include_spare_column) {
+    
+    # Use the internal key after conversion.
+    # The configured name is restored before returning.
+    if (!"spare" %in% names(class_list)) {
+      
+      class_list$spare <- rep(
+        "",
+        nrow(class_list)
+      )
+    }
+    
+    # Preserve existing values and mark new spare rows
+    class_list$spare[is_spare] <- "Y"
+  }
+  
+  # ------------------------------------------------------------
+  # 9. Sort by school, class and student name
+  # ------------------------------------------------------------
+  sort_last_name <- as.character(
+    class_list$sln
+  )
+  
+  sort_last_name[is_spare] <- "ZZZZZZZZZZZZZZZZZ"
+  
+  sort_first_name <- as.character(
+    class_list$sfn
+  )
+  
+  sort_first_name[is.na(sort_first_name)] <- ""
+  
+  order_index <- order(
+    as.character(class_list[[school_col]]),
+    as.character(class_list[[class_col]]),
+    sort_last_name,
+    sort_first_name,
+    na.last = TRUE
+  )
+  
+  class_list <- class_list[
+    order_index,
+    ,
+    drop = FALSE
+  ]
+  
+  rownames(class_list) <- NULL
+  
+  # ------------------------------------------------------------
+  # 10. Restore original column names and order
+  # ------------------------------------------------------------
+  # Preserve the input names for all existing non-spare columns.
+  # The spare indicator uses its configured name when requested.
+  
+  output_names <- original_names
+  
+  if (include_spare_column) {
+    
+    output_names[
+      internal_names_at_start == "spare"
+    ] <- spare_col
+    
+    if (!"spare" %in% internal_names_at_start) {
+      output_names <- c(output_names, spare_col)
     }
   }
   
-  # Mark spare rows
-  last_name <- class_list$`Pupil Last Name`
-  last_name[(original_size + 1):nrow(class_list)] <- "ZZZZZZZZZZZZZZZZZ"
-  
-  # Optionally add Spare? column
-  if (include_spare_column) {
-    spare <- rep("", nrow(class_list))
-    spare[last_name == "ZZZZZZZZZZZZZZZZZ"] <- "Y"
-    class_list$spare <- spare
-    names(class_list)[ncol(class_list)] <- "Spare?"
-  }
-  
-  # Sort by school, class, and student name
-  combo <- paste0(
-    class_list$`School name`, "---",
-    class_list$`Class Name`, "---",
-    last_name, class_list$`Pupil First Name`
-  )
-  class_list <- class_list[order(combo), ]
+  # Columns remain in their original positions, with any new
+  # spare indicator appended at the end.
+  names(class_list) <- output_names
   
   class_list
 }
 
 
-#' Clean and standardize teacher name formatting
+
+#' Clean and Standardise Teacher Name Formatting
 #'
 #' @description
-#' Converts all teacher name fields in a class list to title case (e.g.,
-#' "john SMITH" becomes "John Smith"). This ensures consistent formatting across
-#' teacher names for display, reporting, and downstream processing.
+#' Converts teacher name fields in a class list to title case (e.g.,
+#' "john SMITH" becomes "John Smith"). This ensures consistent formatting
+#' across teacher names for display, reporting and downstream processing.
 #'
-#' @param data A data frame containing class list information. Must include
-#'   teacher name columns such as `"Main Teacher Name"`, `"Main Teacher First Name"`,
-#'   and `"Main Teacher Last Name"`.
+#' The function supports the package's configurable column-name system,
+#' automatically converting input column names to their internal
+#' equivalents before processing and restoring the configured names
+#' in the returned data frame.
 #'
-#' @param teacher_name_col Character string giving the name of the column
-#'   containing the teacher's full name. Defaults to `"Main Teacher Name"`.
-#'
-#' @param TeacherFNColumn Character string giving the name of the column
-#'   containing the teacher's first name. Defaults to `"Main Teacher First Name"`.
-#'
-#' @param TeacherLNColumn Character string giving the name of the column
-#'   containing the teacher's last name. Defaults to `"Main Teacher Last Name"`.
+#' @param data A data frame containing class list information.
+#'   The following columns are required, using either their internal
+#'   names or the currently configured column names:
+#'   \describe{
+#'     \item{t_full}{Teacher's full name
+#'       (default: `TEACHER_FULL_NAME`).}
+#'     \item{tfn}{Teacher's first name
+#'       (default: `TEACHER_FIRST_NAME`).}
+#'     \item{tln}{Teacher's surname
+#'       (default: `TEACHER_LAST_NAME`).}
+#'   }
 #'
 #' @return
-#' A data frame identical to the input `data`, with all teacher name columns
-#' converted to title case.
+#' A data frame identical to the input `data`, except that the teacher
+#' name columns are converted to title case. Column names are returned
+#' using the package's configured naming convention.
 #'
 #' @details
-#' This function is typically used after data extraction or merging steps to
-#' clean up inconsistent capitalization in teacher names. It is complementary
-#' to \code{\link{clean_class_names}()} and \code{\link{reduce_to_best_teacher}()},
-#' providing the final formatting pass before export.
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Converts the input column names to their internal equivalents
+#'         using `rename_to_internal_names()`.
+#'   \item Checks that all required teacher name columns are present.
+#'   \item Converts the teacher full name, first name and surname to title
+#'         case using `stringr::str_to_title()`.
+#'   \item Restores the configured column names using
+#'         `rename_to_configured_names()`.
+#' }
 #'
-#' If any of the specified teacher name columns are missing from the input data,
-#' the function will stop with an informative error message.
+#' Missing (`NA`) values are preserved. All other columns and their
+#' values remain unchanged.
+#'
+#' This function is typically used after data extraction or merging,
+#' or following `produce_class_lists()`, as a final formatting step
+#' before export.
 #'
 #' @examples
 #' \dontrun{
+#' # Clean teacher names using the default configured column names
 #' cleaned_df <- clean_teacher_names(class_list_df)
-#' head(cleaned_df[, c("Main Teacher Name", "Main Teacher First Name", "Main Teacher Last Name")])
+#'
+#' # Inspect the cleaned teacher names
+#' cleaned_df[, unname(get_column_names(
+#'   c("t_full", "tfn", "tln")
+#' ))]
+#'
+#' # The function also supports modified column names
+#' set_column_names(t_full = "MAIN_TEACHER")
+#' cleaned_df <- clean_teacher_names(class_list_df)
+#'
+#' # Restore defaults
+#' reset_column_names()
 #' }
 #'
+#' @family class_list
+#'
 #' @export
-clean_teacher_names <- function(data,
-                                teacher_name_col = "Main Teacher Name",
-                                TeacherFNColumn = "Main Teacher First Name",
-                                TeacherLNColumn = "Main Teacher Last Name") {
-  teacher_columns <- c(teacher_name_col, TeacherFNColumn, TeacherLNColumn)
-  indices <- match(teacher_columns, names(data))
+clean_teacher_names <- function(data) {
   
-  # Check for missing columns
-  missing_cols <- teacher_columns[is.na(indices)]
+  # -------------------------------------------------------------------
+  # 1. Convert to internal column names
+  # -------------------------------------------------------------------
+  data <- rename_to_internal_names(data)
+  
+  # -------------------------------------------------------------------
+  # 2. Check required columns
+  # -------------------------------------------------------------------
+  teacher_columns <- c("t_full", "tfn", "tln")
+  
+  missing_cols <- setdiff(teacher_columns, names(data))
+  
   if (length(missing_cols) > 0) {
-    stop("Missing required teacher columns: ", paste(missing_cols, collapse = ", "))
+    stop(
+      "Missing required teacher columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
   }
   
-  # Convert each teacher name column to title case
-  for (index in indices) {
-    data[[index]] <- stringr::str_to_title(data[[index]])
+  # -------------------------------------------------------------------
+  # 3. Convert teacher names to title case
+  # -------------------------------------------------------------------
+  for (column in teacher_columns) {
+    data[[column]] <- stringr::str_to_title(data[[column]])
   }
   
-  data
+  # -------------------------------------------------------------------
+  # 4. Restore configured column names
+  # -------------------------------------------------------------------
+  rename_to_configured_names(data)
 }
 
 

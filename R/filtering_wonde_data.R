@@ -112,7 +112,7 @@ filter_WondeData <- function(
       # Skip subsetting for subjects (already filtered separately)
       if (name == "subjects" || !("id" %in% names(df))) return(df)
       df[df$id %in% keep_ids, , drop = FALSE]
-    }) |> setNames(names(school_data))
+    }) |> stats::setNames(names(school_data))
     
     # ---- Return reduced dataset ----
     attr(school_data, "Index") <- i

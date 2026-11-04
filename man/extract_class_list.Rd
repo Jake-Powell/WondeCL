@@ -10,7 +10,8 @@ extract_class_list(
   maths_names,
   maths_desc_names,
   year_pattern,
-  verbose = TRUE
+  verbose = TRUE,
+  schools_id_column = "EstablishmentID"
 )
 }
 \arguments{
@@ -29,6 +30,10 @@ descriptions (used when \code{GetMathByClassDescription = TRUE}).}
 (e.g., `"7"` for Year 7 or `"8"` for Year 8).}
 
 \item{verbose}{Logical; if \code{TRUE}, prints progress.}
+
+\item{schools_id_column}{Character string specifying the column
+in the supplied schools data frame containing the school
+identifiers used to link schools to their Wonde extracts.}
 }
 \value{
 A data frame combining all matched student, class, and teacher information

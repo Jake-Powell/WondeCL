@@ -2,73 +2,106 @@
 % Please edit documentation in R/class_list_functions.R
 \name{produce_class_lists}
 \alias{produce_class_lists}
-\title{Produce final formatted class lists from cleaned student data}
+\title{Produce Consolidated Class Lists}
 \usage{
 produce_class_lists(
   data,
-  class_name_column = "ClassName",
+  class_name_column = "class_name",
   default_teacher = "Reception teacher",
   default_teacher_FN = "Reception",
   default_teacher_SN = "Teacher"
 )
 }
 \arguments{
-\item{data}{A data frame containing student and class information. Must
-include at least the columns `SchoolId`, `StudentId`, `SchoolName`, `URN`,
-the class name column specified by `class_name_column`, and teacher and
-student name fields such as `TeacherName`, `TeacherForeName`,
-`TeacherSurName`, `StudentFirstName`, `StudentLastName`, `DoB`, and `UPN`.}
+\item{data}{A data frame containing student, class and teacher
+information. Required columns include establishment identifiers,
+student identifiers, student names, date of birth, UPN, class
+name and teacher details.}
 
-\item{class_name_column}{Character string specifying the column to use for
-class names. Default is `"ClassName"`, but `"class_name_use"` is
-recommended if using `clean_class_names()`.}
+\item{class_name_column}{Character string specifying the class-name
+column to use. Accepts an internal column key or its configured
+name. Defaults to `"class_name"`.}
 
-\item{default_teacher}{Character string giving the default main teacher name
-for records with missing teacher information. Default is `"Reception teacher"`.}
+\item{default_teacher}{Character string used when the selected
+teacher's full name is missing. Defaults to `"Reception teacher"`.}
 
-\item{default_teacher_FN}{Character string giving the default teacher first
-name. Default is `"Reception"`.}
+\item{default_teacher_FN}{Character string used when the selected
+teacher's first name is missing. Defaults to `"Reception"`.}
 
-\item{default_teacher_SN}{Character string giving the default teacher surname.
-Default is `"Teacher"`.}
+\item{default_teacher_SN}{Character string used when the selected
+teacher's surname is missing. Defaults to `"Teacher"`.}
 }
 \value{
-A data frame containing one row per student with the following columns:
-\describe{
-  \item{`School name`}{The school name.}
-  \item{`URN`}{Unique reference number for the school.}
-  \item{`Class Name`}{The class name used in downstream processing.}
-  \item{`Main Teacher Name`}{Teacher responsible for the class, with defaults
-  used if missing.}
-  \item{`Pupil First Name`}{The student's first name (title-cased).}
-  \item{`Pupil Last Name`}{The student's surname (title-cased).}
-  \item{`DoB`}{The student's date of birth.}
-  \item{`UPN`}{The unique pupil number or ID if available.}
-  \item{`Main Teacher First Name`}{The main teacher's first name.}
-  \item{`Main Teacher Last Name`}{The main teacher's surname.}
+A data frame containing one row per unique establishment-student
+combination, including:
+\itemize{
+  \item Establishment identifiers and school information.
+  \item Consolidated class names.
+  \item Student names, date of birth and UPN.
+  \item Selected teacher's full name, first name and surname.
 }
+
+Column names are returned using the package's configured naming
+convention.
 }
 \description{
-Aggregates cleaned student, class, and teacher data into a single
-standardized class list suitable for reporting or export. Each student
-appears once per school, with their associated class, teacher, and unique
-identifiers. Default values are used for missing teacher names, and student
-names are converted to title case.
+Produces a consolidated class list by aggregating student and class
+information and selecting one teacher record per student.
+
+The function supports the package's configurable column-name system,
+converting input columns to internal names before processing and
+restoring configured names in the output.
 }
 \details{
-This function is typically the final step in the class list processing
-pipeline, after functions such as `clean_class_names()` and
-`reduce_to_best_teacher()`. It merges multiple records per student into
-single entries, applies formatting and default values, and returns a clean,
-human-readable data frame.
+The function performs the following steps:
+\enumerate{
+  \item Converts input column names to the internal naming convention.
+  \item Validates the required columns and selected class-name field.
+  \item Groups records by establishment ID and Wonde student ID.
+  \item Aggregates student information and all unique class names.
+  \item Selects one teacher record per student, prioritising
+    records marked as the main teacher. Where multiple records have
+    equal priority, the first record is selected.
+  \item Retains the selected teacher's full name, first name and
+    surname together.
+  \item Replaces missing teacher name fields with the specified defaults.
+  \item Converts student names to title case and sorts the output.
+  \item Restores the configured column names.
+}
+
+Class information is aggregated independently of teacher selection.
+Students assigned to multiple classes therefore retain all unique
+class names, even though only one teacher is reported.
+
+Teacher selection is performed within each establishment using
+the combination of `est_wonde_id` and `s_wonde_id`.
+
+This function is typically used after `clean_class_names()` and
+`reduce_to_best_teacher()`.
 }
 \examples{
 \dontrun{
-final_list <- produce_class_lists(
-  data = cleaned_data,
-  class_name_column = "class_name_use"
+class_list <- produce_class_lists(data)
+
+class_list <- produce_class_lists(
+  data,
+  class_name_column = "CLASS_WONDE_NAME"
 )
-head(final_list)
 }
 
 }
+\seealso{
+Other class_list: 
+\code{\link{add_student_to_school_class}()},
+\code{\link{clean_teacher_names}()},
+\code{\link{create_school_blanks}()},
+\code{\link{reduce_to_best_teacher}()},
+\code{\link{remove_class}()},
+\code{\link{remove_school_from_class_list}()},
+\code{\link{remove_student_from_class}()},
+\code{\link{update_class_name}()},
+\code{\link{update_class_teacher}()},
+\code{\link{update_school_name}()},
+\code{\link{update_student_class}()}
+}
+\concept{class_list}

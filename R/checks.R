@@ -31,7 +31,12 @@
 #'
 #' @export
 detect_students_missing_class <- function(class_list_df) {
-  class_list_df[is.na(class_list_df$ClassId), ]
+  
+  class_list_df |>
+    rename_to_internal_names() |>
+    dplyr::filter(is.na(c_wonde_id)) |>
+    rename_to_configured_names()
+  
 }
 
 
@@ -97,59 +102,137 @@ detect_students_missing_class <- function(class_list_df) {
 #' }
 #'
 #' @export
-check_students_missing_class <- function(class_list_df,
-                                                 WondeData,
-                                                 subject_name = "Maths",
-                                                 output_prefix = "Students_without_subject_class") {
-  # -------------------------------------------------------------------------
-  # 1. Identify students without a subject class (e.g. Maths)
-  # -------------------------------------------------------------------------
-  SS <- detect_students_missing_class(class_list_df)
+check_students_missing_class <- function(
+    class_list_df,
+    WondeData,
+    subject_name = "Maths",
+    output_prefix = "Students_without_subject_class") {
   
   # -------------------------------------------------------------------------
-  # 2. For each missing student, extract their classes and subjects information
+  # 0. Convert to internal column names
+  # -------------------------------------------------------------------------
+  class_list_df <- rename_to_internal_names(class_list_df)
+  
+  # -------------------------------------------------------------------------
+  # 1. Identify students without a subject class
+  # -------------------------------------------------------------------------
+  SS <- detect_students_missing_class(class_list_df) |>
+    rename_to_internal_names()
+  
+  # -------------------------------------------------------------------------
+  # 2. Extract classes and subjects for each missing student
   # -------------------------------------------------------------------------
   students_class_subject <- lapply(seq_len(nrow(SS)), function(index) {
-    cur <- SS[index, ]
-    g <- WondeData[[cur$SchoolId]]$students_classes
-    g <- g[g$id == cur$StudentId, ]
     
-    wanted_cols <- c("school_name", "school_urn",
-                     "id", 
-                     "initials", "title", "surname", "forename",
-                     "classes.data__name", "classes.data__code", "classes.data__description",
-                     "classes.data__subject", "classes.data__alternative",
-                     "classes.data__priority", "classes.data__academic_year",
-                     "classes.data__year_group")
+    cur <- SS[index, , drop = FALSE]
     
-    # Filter columns safely
-    cols_present <- wanted_cols[wanted_cols %in% names(g)]
+    est_id <- as.character(cur$est_id[[1]])
+    student_id <- as.character(cur$s_wonde_id[[1]])
+    
+    school_data <- WondeData[[est_id]]
+    
+    if (is.null(school_data) ||
+        is.null(school_data$students_classes)) {
+      return(NULL)
+    }
+    
+    g <- school_data$students_classes
+    
+    g <- g[
+      !is.na(g$id) & as.character(g$id) == student_id,
+      ,
+      drop = FALSE
+    ]
+    
+    wanted_cols <- c(
+      "school_name",
+      "school_urn",
+      "id",
+      "initials",
+      "title",
+      "surname",
+      "forename",
+      "classes.data__name",
+      "classes.data__code",
+      "classes.data__description",
+      "classes.data__subject",
+      "classes.data__alternative",
+      "classes.data__priority",
+      "classes.data__academic_year",
+      "classes.data__year_group"
+    )
+    
+    # Select available Wonde fields
+    cols_present <- intersect(wanted_cols, names(g))
+    
     out <- g[, cols_present, drop = FALSE]
     
-    # Map subject names
-    out$subject_name <- WondeData[[cur$SchoolId]]$subjects$name[
-      match(out$classes.data__subject, WondeData[[cur$SchoolId]]$subjects$id)
-    ]
+    # Map subject IDs to subject names
+    if ("classes.data__subject" %in% names(out) &&
+        !is.null(school_data$subjects) &&
+        all(c("id", "name") %in% names(school_data$subjects))) {
+      
+      out$subject_name <- school_data$subjects$name[
+        match(
+          out$classes.data__subject,
+          school_data$subjects$id
+        )
+      ]
+      
+    } else {
+      out$subject_name <- rep(NA_character_, nrow(out))
+    }
     
     out
   })
   
-  miss_student_class_subject <- rbind_aggro(students_class_subject)
+  # Combine individual student results
+  students_class_subject <- Filter(Negate(is.null), students_class_subject)
+  
+  miss_student_class_subject <- if (length(students_class_subject) > 0) {
+    rbind_aggro(students_class_subject)
+  } else {
+    data.frame()
+  }
   
   # -------------------------------------------------------------------------
   # 3. Compute per-school issue summary
   # -------------------------------------------------------------------------
   issue_breakdown <- class_list_df |>
-    dplyr::group_by(SchoolName) |>
+    dplyr::group_by(
+      est_wonde_id,
+      est_wonde_name,
+      est_wonde_urn
+    ) |>
     dplyr::summarise(
-      total_student = dplyr::n_distinct(StudentId),
-      total_with_issue = dplyr::n_distinct(StudentId[is.na(ClassId)]),
-      issue_percent = round(total_with_issue / total_student * 100, 1),
-      students = paste0(StudentFirstName[is.na(ClassId)], " ", StudentLastName[is.na(ClassId)]) |>
-        paste0(collapse = "\n")
-    )
+      total_student = dplyr::n_distinct(s_wonde_id),
+      
+      total_with_issue = dplyr::n_distinct(
+        s_wonde_id[is.na(c_wonde_id)]
+      ),
+      
+      issue_percent = dplyr::if_else(
+        total_student > 0,
+        round(total_with_issue / total_student * 100, 1),
+        NA_real_
+      ),
+      
+      students = paste(
+        paste(
+          sfn[is.na(c_wonde_id)],
+          sln[is.na(c_wonde_id)]
+        ),
+        collapse = "\n"
+      ),
+      
+      .groups = "drop"
+    ) |>
+    dplyr::arrange(dplyr::desc(total_with_issue))
   
-  issue_breakdown <- issue_breakdown[order(issue_breakdown$total_with_issue, decreasing = TRUE), ]
+  # Convert configured columns back to external naming convention
+  SS <- rename_to_configured_names(SS)
+  
+  issue_breakdown <- rename_to_configured_names(issue_breakdown)
   
   # -------------------------------------------------------------------------
   # 4. Return structured output
@@ -160,7 +243,6 @@ check_students_missing_class <- function(class_list_df,
     missing_per_school = issue_breakdown
   ))
 }
-
 
 #' Check and summarize multiple class memberships
 #'
@@ -267,17 +349,17 @@ check_multiple_class_memberships <- function(class_list_df,
   # -------------------------------------------------------------------
   # 1. Build initial class list using user-defined pipeline functions
   # -------------------------------------------------------------------
-  AA = detect_multiple_class_memberships(class_list_df)
-  ids <- schools$id[schools$URN %in% AA$URN]
-  names_schools <- schools$name[schools$URN %in% AA$URN]
-  names_urn <- schools$URN[schools$URN %in% AA$URN]
+  AA = detect_multiple_class_memberships(class_list_df) |> rename_to_internal_names()
+  est_ids <- schools$EstablishmentID[schools$URN %in% AA$est_wonde_urn]
+  names_schools <- schools$name[schools$URN %in% AA$est_wonde_urn]
+  names_urn <- schools$URN[schools$URN %in% AA$est_wonde_urn]
   
-  ids_OG = ids ; names_schools_OG = names_schools ; names_urn_OG = names_urn
+  ids_OG = est_ids ; names_schools_OG = names_schools ; names_urn_OG = names_urn
   # -------------------------------------------------------------------
   # 2. Build breakdown of overlapping classes
   # -------------------------------------------------------------------
-  class_breakdown <- lapply(seq_along(ids), function(index) {
-    example <- WondeData[[ids[index]]]
+  class_breakdown <- lapply(seq_along(est_ids), function(index) {
+    example <- WondeData[[est_ids[index]]]
     
     ex_year_ids <- get_student_ids_target_year(example,year_codes_target = year_codes_target,type = "grep")
     # ex_year_ids <- example$student$id[example$student$year.data.name %in% year_codes_target]
@@ -307,7 +389,7 @@ check_multiple_class_memberships <- function(class_list_df,
     
     list(class_stud = class_stud)
   })
-  names(class_breakdown) <- names_urn
+  names(class_breakdown) <- est_ids
   
   class_breakdown <- class_breakdown[order(names(class_breakdown))]
   # -------------------------------------------------------------------
@@ -330,39 +412,49 @@ check_multiple_class_memberships <- function(class_list_df,
   class_breakdown
 }
 
-#' Detect students with multiple class memberships
+#' Detect Students with Multiple Class Memberships
 #'
 #' @description
-#' Identifies students who appear to belong to more than one class within the
-#' provided class list. The function runs a standard cleaning pipeline to ensure
-#' class and teacher information are consistent before detection, then filters
-#' for cases where the `Class Name` field contains multiple class names joined
-#' by commas.
+#' Identifies students who belong to more than one class within the
+#' provided class list. Students are grouped using their school
+#' identifiers and personal information, and the number of distinct
+#' classes associated with each student is calculated.
 #'
-#' @param class_list_df A data frame containing class list information,
-#'   typically the output from `extract_class_list()`. It should include
-#'   at minimum `SchoolId`, `StudentId`, `ClassId`, `ClassName`, and associated
-#'   teacher and student details.
+#' Column names are resolved using the package's configurable
+#' column-name system.
+#'
+#' @param class_list_df A data frame containing class-list information,
+#'   typically produced by `extract_class_list()`. The following
+#'   internal columns (or their configured equivalents) are required:
+#'   `est_wonde_id`, `est_wonde_name`, `est_wonde_urn`,
+#'   `s_wonde_id`, `sfn`, `sln`, `dob`, `upn` and `c_wonde_id`.
 #'
 #' @return
-#' A data frame of students who are listed in more than one class, with teacher
-#' columns removed for clarity.
-#'
-#' @details
-#' The function performs the following steps:
-#' \enumerate{
-#'   \item Cleans and standardizes class names using
-#'         \code{\link{clean_class_names}()}.
-#'   \item Reduces duplicate student records to the main teacher using
-#'         \code{\link{reduce_to_best_teacher}()}.
-#'   \item Produces a summarized class list via
-#'         \code{\link{produce_class_lists}()}.
-#'   \item Filters for any records where \code{Class Name} contains a comma,
-#'         indicating multiple class associations.
+#' A data frame containing students associated with more than one
+#' distinct class, with the following columns:
+#' \describe{
+#'   \item{Establishment and student fields}{The school and student
+#'     identifiers used for grouping, returned using their
+#'     configured column names.}
+#'   \item{classes}{Comma-separated list of unique class IDs.}
+#'   \item{no_classes}{Number of distinct classes associated
+#'     with the student.}
 #' }
 #'
-#' This function is typically used as part of a quality-assurance step before
-#' running overlap or membership consistency checks.
+#' @details
+#' The function:
+#' \enumerate{
+#'   \item Converts configured column names to internal names.
+#'   \item Groups records by school and student identifiers.
+#'   \item Combines unique class IDs into a comma-separated string.
+#'   \item Counts distinct class IDs.
+#'   \item Retains only students associated with more than one class.
+#'   \item Restores configured column names.
+#' }
+#'
+#' Class memberships are identified using `c_wonde_id`, rather than
+#' class names. This avoids treating different names for the same
+#' class as separate memberships.
 #'
 #' @examples
 #' \dontrun{
@@ -372,23 +464,24 @@ check_multiple_class_memberships <- function(class_list_df,
 #'
 #' @export
 detect_multiple_class_memberships <- function(class_list_df) {
-  out = class_list_df |>
-    dplyr::group_by(SchoolId,SchoolName,URN,StudentId,StudentFirstName,StudentLastName,DoB,UPN) |>
-    dplyr::summarise(classes = ClassId |> unique() |> paste0(collapse = ', '),
-                     no_classes = ClassId |> unique() |> length()) |>
+  
+  # Convert to internal column names
+  class_list_df <- rename_to_internal_names(class_list_df)
+  
+  out <- class_list_df |>
+    dplyr::group_by(
+      est_wonde_id, est_wonde_name, est_wonde_urn,
+      s_wonde_id, sfn, sln, dob, upn
+    ) |>
+    dplyr::summarise(
+      classes = paste(unique(c_wonde_id), collapse = ", "),
+      no_classes = dplyr::n_distinct(c_wonde_id),
+      .groups = "drop"
+    ) |>
     dplyr::filter(no_classes > 1)
   
-  # # Clean and standardize
-  # class_list <- class_list_df |>
-  #   clean_class_names(default_class_name = "") |>
-  #   reduce_to_best_teacher() |>
-  #   produce_class_lists(class_name_column = "class_name_use")
-  # 
-  # # Identify students with multiple classes
-  # out <- class_list[stringr::str_detect(class_list$`Class Name`, ", "), ]
-  # 
-  # # Remove teacher columns for clarity
-  # out <- out[, !(names(out) |> stringr::str_detect("Teacher")), drop = FALSE]
+  # Convert back to configured column names
+  out <- rename_to_configured_names(out)
   
   return(out)
 }
