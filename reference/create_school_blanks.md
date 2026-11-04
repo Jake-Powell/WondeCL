@@ -1,0 +1,111 @@
+# Create Blank Class Lists for Schools Without Wonde Data
+
+Creates placeholder class lists for schools without Wonde access. School
+information is read from \`schools_with_size\`; class and teacher
+details can be specified or generated automatically. Output uses the
+package's configured column names.
+
+## Usage
+
+``` r
+create_school_blanks(
+  schools_with_size,
+  numbering_type = "school",
+  teacher_name = c("Reception", "Teacher"),
+  class_name = "Reception Class",
+  type = 30,
+  class_buffer = 5,
+  class_size = 30,
+  class_list_columns = "master"
+)
+```
+
+## Arguments
+
+- schools_with_size:
+
+  Data frame with a school name (configured \`est_wonde_name\` or
+  \`SchoolName\`), a school URN (configured \`urn\`), and
+  \`NoStudents\`. Optional columns are \`ClassInfo\`, \`TeacherInfo\`,
+  and the configured \`est_id\` (establishment number).
+
+- numbering_type:
+
+  Either \`"school"\` (placeholder pupil numbers continue across classes
+  within a school) or \`"class"\` (restart at 1 per class).
+
+- teacher_name:
+
+  Character vector of length 2 containing default teacher first name and
+  surname. Defaults to \`c("Reception", "Teacher")\`.
+
+- class_name:
+
+  Base class name used when generating classes automatically.
+
+- type:
+
+  If a single non-negative whole number, the number of blank rows per
+  automatically generated class. Otherwise, e.g. \`"auto"\`, use
+  \`ceiling(NoStudents / number_of_classes) + class_buffer\`.
+
+- class_buffer:
+
+  Non-negative whole number added to automatically estimated class sizes
+  when \`type\` is not numeric.
+
+- class_size:
+
+  Positive whole number used to calculate how many classes a school
+  needs when \`ClassInfo\` is not supplied.
+
+- class_list_columns:
+
+  \`"master"\`, \`"print"\`, or a character vector of internal column
+  keys and/or configured column names. Additional literal names are
+  allowed and filled with \`NA\` if unavailable. The \`master\` preset
+  includes \`DATE_OF_WITHDRAWAL\`, an extra field not in the column
+  mapping.
+
+## Value
+
+Data frame in the requested column order and configured naming
+convention. With no schools or zero-sized schools, returns a zero-row
+data frame with the requested columns.
+
+## Details
+
+\`ClassInfo\` accepts entries like \`"A -\> 28, B -\> 30"\`. Those class
+sizes are used as provided, independently of \`NoStudents\` and
+\`type\`. \`TeacherInfo\` accepts comma-separated full names, e.g.
+\`"Jane Smith, Alex Jones"\`; one teacher can be reused across all
+classes, or one teacher may be supplied per class. The separator \`—\`
+is also supported between teachers. Names are split at the first space.
+
+Placeholder pupil numbers are stored in the configured \`sfn\` column;
+other pupil-specific information is missing (\`NA\`). The function does
+not assign real OME IDs, print IDs or student Wonde IDs.
+
+## See also
+
+Other class_list:
+[`add_student_to_school_class()`](https://Jake-Powell.github.io/WondeCL/reference/add_student_to_school_class.md),
+[`clean_teacher_names()`](https://Jake-Powell.github.io/WondeCL/reference/clean_teacher_names.md),
+[`produce_class_lists()`](https://Jake-Powell.github.io/WondeCL/reference/produce_class_lists.md),
+[`reduce_to_best_teacher()`](https://Jake-Powell.github.io/WondeCL/reference/reduce_to_best_teacher.md),
+[`remove_class()`](https://Jake-Powell.github.io/WondeCL/reference/remove_class.md),
+[`remove_school_from_class_list()`](https://Jake-Powell.github.io/WondeCL/reference/remove_school_from_class_list.md),
+[`remove_student_from_class()`](https://Jake-Powell.github.io/WondeCL/reference/remove_student_from_class.md),
+[`update_class_name()`](https://Jake-Powell.github.io/WondeCL/reference/update_class_name.md),
+[`update_class_teacher()`](https://Jake-Powell.github.io/WondeCL/reference/update_class_teacher.md),
+[`update_school_name()`](https://Jake-Powell.github.io/WondeCL/reference/update_school_name.md),
+[`update_student_class()`](https://Jake-Powell.github.io/WondeCL/reference/update_student_class.md)
+
+## Examples
+
+``` r
+schools <- data.frame(
+  SchoolName = "Oak Primary", URN = "123456", NoStudents = 45
+)
+blanks <- create_school_blanks(schools, class_list_columns = "master")
+```

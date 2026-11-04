@@ -1,0 +1,148 @@
+# Apply Student Withdrawals to a Class List
+
+Matches withdrawal requests to students in a class list and updates
+their withdrawal status. Supports both legacy school-name/date-of-birth
+matching and current establishment-identifier matching.
+
+## Usage
+
+``` r
+apply_withdrawal(
+  class_list,
+  withdrawn_students,
+  school_dob_match = FALSE,
+  legacy_school_link = "~/Wonde/Establishment_List_ID.xlsx",
+  links_category = "Primary",
+  expected_years = c(2019, 2020),
+  do_log = FALSE,
+  reference_school_name_column = "EstablishmentName",
+  reference_school_id_column = "URN",
+  keep_grep = paste0("I want to withdraw my child from the study|",
+    "No, please delete any previous data about my child"),
+  TypeOfWithdrawalColumn = "Type of withdrawal",
+  FirstNameColumn = "Your child's first name",
+  LastNameColumn = "Your child's surname",
+  EstablishmentIDColumn = "EstablishmentID",
+  school_id_column = "est_id",
+  ...
+)
+```
+
+## Arguments
+
+- class_list:
+
+  A data frame containing student records. Columns may use the
+  configured or internal naming convention.
+
+- withdrawn_students:
+
+  A data frame containing withdrawal responses, or a path to an XLSX
+  file.
+
+- school_dob_match:
+
+  Logical. If TRUE, use the legacy school-name and date-of-birth
+  matching method. If FALSE, use the establishment-identifier matching
+  method.
+
+- legacy_school_link:
+
+  Path to the external school reference XLSX file used by the legacy
+  matching method.
+
+- links_category:
+
+  School category, retained for compatibility with the legacy method.
+  Filtering is not currently applied.
+
+- expected_years:
+
+  Numeric vector of acceptable birth years used by the legacy
+  date-of-birth processing function.
+
+- do_log:
+
+  Logical. Whether to write a log when using the legacy matching method.
+
+- reference_school_name_column:
+
+  Column containing school names in the external school reference file.
+  Used only by the legacy method. Defaults to "EstablishmentName".
+
+- reference_school_id_column:
+
+  Column containing school identifiers in the external reference file.
+  Used only by the legacy method. Defaults to "URN". Values must match
+  the class list's configured \`urn\` column.
+
+- keep_grep:
+
+  Regular expression identifying withdrawal responses to retain. Used by
+  the current method.
+
+- TypeOfWithdrawalColumn:
+
+  Column containing the type of withdrawal in the withdrawal form.
+
+- FirstNameColumn:
+
+  Column containing the student's first name in the withdrawal form.
+
+- LastNameColumn:
+
+  Column containing the student's surname in the withdrawal form.
+
+- EstablishmentIDColumn:
+
+  Column containing the school identifier in the withdrawal form.
+
+- school_id_column:
+
+  Internal or configured column name identifying the school in the class
+  list for the current matching method. Defaults to "est_id".
+
+- ...:
+
+  Additional arguments passed to the selected internal withdrawal
+  function.
+
+## Value
+
+A list containing:
+
+- class_list:
+
+  Updated class list using configured column names, with matched
+  students marked as withdrawn.
+
+- withdraw:
+
+  Withdrawal matching report containing MatchDetail, SchoolCheck,
+  CLASS_LIST_INDEX, matchedFirstName, matchedLastName,
+  matchedSchoolName, and IGNORE_RESULT.
+
+## Details
+
+When \`school_dob_match = TRUE\`, the function calls
+\`.apply_withdrawal_old()\`. This matches school names against an
+external reference file and uses student names and dates of birth to
+identify withdrawals.
+
+When \`school_dob_match = FALSE\`, the function calls
+\`.apply_withdrawal_new()\`. This matches students using an
+establishment identifier and student names.
+
+Both methods preserve existing withdrawal statuses and create the
+configured withdrawal column if it is missing. Only uniquely matched
+students are marked as withdrawn.
+
+The function does not require a Wonde student identifier. It marks
+withdrawals but does not automatically remove identifying information.
+Use \`clear_withdrawn_student_data()\` separately for that purpose.
+
+## See also
+
+Other withdrawing:
+[`clear_withdrawn_student_data()`](https://Jake-Powell.github.io/WondeCL/reference/clear_withdrawn_student_data.md),
+[`revert_ignored_withdrawals()`](https://Jake-Powell.github.io/WondeCL/reference/revert_ignored_withdrawals.md)

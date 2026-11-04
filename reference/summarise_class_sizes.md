@@ -1,0 +1,103 @@
+# Summarise Class Sizes and Percent of School Population
+
+Groups a class list by one or more establishment and class identifiers
+to calculate:
+
+- The number of students in each class.
+
+- The total number of students across classes in each school.
+
+- The percentage of the school's students belonging to each class.
+
+Column names are resolved using the package's configurable column-name
+system. Multiple establishment and class grouping variables are
+supported.
+
+## Usage
+
+``` r
+summarise_class_sizes(
+  class_list,
+  establishment_cols = c("est_id", "est_wonde_name"),
+  class_cols = c("class_name", "c_wonde_name"),
+  unique_id_col = NULL
+)
+```
+
+## Arguments
+
+- class_list:
+
+  A class-list data frame using configured or internal column names.
+
+- establishment_cols:
+
+  Character vector of establishment identifiers. Defaults to
+  \`c("est_id", "est_wonde_name")\`. All available columns are used for
+  grouping.
+
+- class_cols:
+
+  Character vector of class identifiers. Defaults to \`c("class_name",
+  "c_wonde_name")\`. All available columns are used for grouping.
+
+- unique_id_col:
+
+  Optional student identifier column. Accepts an internal key,
+  configured name or another column present in the data. If NULL, each
+  row counts as one student. If specified but unavailable, row counts
+  are used.
+
+## Value
+
+A tibble containing the selected establishment and class identifiers,
+followed by:
+
+- STUDENTS_IN_CLASS:
+
+  Number of students in the class.
+
+- TOTAL_STUDENTS_IN_SCHOOL:
+
+  Sum of class-level student counts for the establishment.
+
+- PERCENT_OF_SCHOOL:
+
+  Percentage of the establishment's student counts belonging to the
+  class.
+
+All returned columns use uppercase names with underscore separators.
+
+## Details
+
+Both internal and configured column names are supported in
+\`establishment_cols\`, \`class_cols\` and \`unique_id_col\`.
+
+Missing grouping columns are skipped, provided at least one
+establishment and one class identifier remain.
+
+If a unique identifier is supplied, distinct values are counted within
+each class, including NA as one distinct value, consistent with the
+original function.
+
+Students appearing in multiple classes contribute separately to each
+class's count.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+summarise_class_sizes(class_list_df)
+
+summarise_class_sizes(
+  class_list_df,
+  unique_id_col = "ome_id"
+)
+
+summarise_class_sizes(
+  class_list_df,
+  establishment_cols = c("est_id", "est_wonde_name"),
+  class_cols = c("class_name", "c_wonde_name")
+)
+} # }
+```
