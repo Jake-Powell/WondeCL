@@ -41,6 +41,10 @@
 #' 
 #' @export
 get_query <- function(url_path, filter = "", token = NULL) {
+  
+  # Enforce organisation-specific API access windows.
+  .check_allowed_api_date()
+  
   carry_on <- TRUE
   page <- 1
   data_all <- list()
@@ -418,8 +422,7 @@ get_secondary_school_student_data <- function(school_id, token = NULL, verbose =
 #'
 #' @details
 #' This function is a wrapper around \code{WondeCL::get_query()}, specifically for retrieving
-#' school data from the Wonde API. It automatically constructs the appropriate endpoint
-#' and handles missing or invalid API tokens.
+#' school data from the Wonde API from the endpoint "https://api.wonde.com/v1.0/schools/".  
 #'
 #' @examplesIf FALSE
 #' \dontrun{
@@ -468,9 +471,9 @@ get_schools <- function(token = NULL) {
     cli::cli_alert_warning("The Wonde API returned an empty result.")
   }
   
-  if (!("data" %in% names(result))) {
-    cli::cli_alert_warning("Unexpected response format: missing 'data' field.")
-  }
+  # if (!("data" %in% names(result))) {
+  #   cli::cli_alert_warning("Unexpected response format: missing 'data' field.")
+  # }
   
   # ----------------------------------------------------------
   # 5. Return result

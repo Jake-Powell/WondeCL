@@ -109,46 +109,148 @@ add_student_to_school_class <- function(data, first_name, last_name, class_name,
 #' @param new_class_name Destination class name in the same school.
 #' @family class_list
 #' @export
+
 update_student_class <- function(data, first_name, last_name, new_class_name,
                                  class_name = NA, ..., verbose = FALSE) {
-  x <- .prepare_class_edit(data, list(...),
-                           c("sfn", "sln", "c_wonde_name"))
+  
+  x <- .prepare_class_edit(
+    data,
+    list(...),
+    c("sfn", "sln")
+  )
+  
   data <- x$data
-  school_rows <- .school_rows(data, x$school_col, x$school_id)
-  target <- school_rows[!is.na(data$sfn[school_rows]) &
-                          !is.na(data$sln[school_rows]) &
-                          data$sfn[school_rows] == first_name &
-                          data$sln[school_rows] == last_name]
+  
+  # Prefer the cleaned class name when available.
+  class_col <- if ("class_name" %in% names(data)) {
+    "class_name"
+  } else if ("c_wonde_name" %in% names(data)) {
+    "c_wonde_name"
+  } else {
+    stop(
+      "Missing required class name column: class_name or c_wonde_name.",
+      call. = FALSE
+    )
+  }
+  
+  school_rows <- .school_rows(
+    data,
+    x$school_col,
+    x$school_id
+  )
+  
+  # ------------------------------------------------------------
+  # 1. Identify the student within the selected school
+  # ------------------------------------------------------------
+  
+  target <- school_rows[
+    !is.na(data$sfn[school_rows]) &
+      !is.na(data$sln[school_rows]) &
+      data$sfn[school_rows] == first_name &
+      data$sln[school_rows] == last_name
+  ]
+  
+  # Optionally restrict to the student's current class.
   if (!all(is.na(class_name))) {
-    target <- target[!is.na(data$c_wonde_name[target]) &
-                       data$c_wonde_name[target] %in% class_name]
+    
+    target <- target[
+      !is.na(data[[class_col]][target]) &
+        data[[class_col]][target] %in% class_name
+    ]
   }
-  destination <- school_rows[!is.na(data$c_wonde_name[school_rows]) &
-                               data$c_wonde_name[school_rows] == new_class_name]
+  
+  # ------------------------------------------------------------
+  # 2. Identify destination class within the same school
+  # ------------------------------------------------------------
+  
+  destination <- school_rows[
+    !is.na(data[[class_col]][school_rows]) &
+      data[[class_col]][school_rows] == new_class_name
+  ]
+  
   if (!length(destination)) {
-    stop("Destination class not found within the selected school.", call. = FALSE)
+    stop(
+      "Destination class not found within the selected school.",
+      call. = FALSE
+    )
   }
+  
   if (!length(target)) {
-    warning("No matching student/class rows found.", call. = FALSE)
+    warning(
+      "No matching student/class rows found.",
+      call. = FALSE
+    )
+    
     return(rename_to_configured_names(data))
   }
-  # Copy teacher details, not just full name, from the destination class.
-  teacher_cols <- intersect(c("t_wonde_id", "t_wonde_ID", "tfn", "tln",
-                              "t_main", "t_full"), names(data))
+  
+  # ------------------------------------------------------------
+  # 3. Select destination teacher information
+  # ------------------------------------------------------------
+  
+  teacher_cols <- intersect(
+    c(
+      "t_wonde_id",
+      "t_wonde_ID",
+      "tfn",
+      "tln",
+      "t_main",
+      "t_full"
+    ),
+    names(data)
+  )
+  
   if (length(teacher_cols) &&
-      nrow(unique(data[destination, teacher_cols, drop = FALSE])) > 1L) {
-    warning("Multiple teacher records in destination class; using first.",
-            call. = FALSE)
+      nrow(unique(
+        data[destination, teacher_cols, drop = FALSE]
+      )) > 1L) {
+    
+    warning(
+      "Multiple teacher records in destination class; using first.",
+      call. = FALSE
+    )
   }
-  data$c_wonde_name[target] <- new_class_name
-  for (col in teacher_cols) data[[col]][target] <- data[[col]][destination[1L]]
-  # Also change the class ID when available, avoiding inconsistent ID/name pairs.
-  if ("c_wonde_id" %in% names(data)) {
-    data$c_wonde_id[target] <- data$c_wonde_id[destination[1L]]
+  
+  # ------------------------------------------------------------
+  # 4. Copy destination class information
+  # ------------------------------------------------------------
+  
+  # Copy both cleaned and original Wonde class names,
+  # where available, from the destination class.
+  class_cols <- intersect(
+    c(
+      "class_name",
+      "c_wonde_name",
+      "c_wonde_id",
+      "class_id"
+    ),
+    names(data)
+  )
+  
+  columns_to_copy <- c(
+    class_cols,
+    teacher_cols
+  )
+  
+  for (col in columns_to_copy) {
+    data[[col]][target] <- data[[col]][destination[1L]]
   }
-  if (isTRUE(verbose)) message("Updated class for ", length(target), " row(s).")
+  
+  # ------------------------------------------------------------
+  # 5. Return configured data
+  # ------------------------------------------------------------
+  
+  if (isTRUE(verbose)) {
+    message(
+      "Updated class for ",
+      length(target),
+      " row(s)."
+    )
+  }
+  
   rename_to_configured_names(data)
 }
+
 
 #' Update the name of a class within a school
 #' @inheritParams add_student_to_school_class
@@ -156,19 +258,73 @@ update_student_class <- function(data, first_name, last_name, new_class_name,
 #' @param class_name Old class name; NA changes all class names in the school.
 #' @family class_list
 #' @export
+
 update_class_name <- function(data, class_name, new_name, ...,
                               verbose = FALSE) {
-  x <- .prepare_class_edit(data, list(...), "c_wonde_name")
+  
+  x <- .prepare_class_edit(
+    data,
+    list(...),
+    character(0)
+  )
+  
   data <- x$data
-  index <- .school_rows(data, x$school_col, x$school_id)
-  if (!all(is.na(class_name))) {
-    index <- index[!is.na(data$c_wonde_name[index]) &
-                     data$c_wonde_name[index] %in% class_name]
+  
+  # Prefer the cleaned class name.
+  class_col <- if ("class_name" %in% names(data)) {
+    "class_name"
+  } else if ("c_wonde_name" %in% names(data)) {
+    "c_wonde_name"
+  } else {
+    stop(
+      "Missing required class name column: class_name or c_wonde_name.",
+      call. = FALSE
+    )
   }
-  data$c_wonde_name[index] <- new_name
-  if (isTRUE(verbose)) message("Updated class name for ", length(index), " row(s).")
+  
+  # ------------------------------------------------------------
+  # 1. Identify selected school
+  # ------------------------------------------------------------
+  
+  index <- .school_rows(
+    data,
+    x$school_col,
+    x$school_id
+  )
+  
+  # ------------------------------------------------------------
+  # 2. Restrict to requested class
+  # ------------------------------------------------------------
+  
+  if (!all(is.na(class_name))) {
+    
+    index <- index[
+      !is.na(data[[class_col]][index]) &
+        data[[class_col]][index] %in% class_name
+    ]
+  }
+  
+  # ------------------------------------------------------------
+  # 3. Update class name
+  # ------------------------------------------------------------
+  
+  data[[class_col]][index] <- new_name
+  
+  # ------------------------------------------------------------
+  # 4. Return configured data
+  # ------------------------------------------------------------
+  
+  if (isTRUE(verbose)) {
+    message(
+      "Updated class name for ",
+      length(index),
+      " row(s)."
+    )
+  }
+  
   rename_to_configured_names(data)
 }
+
 
 #' Update the name of one or more schools
 #' @inheritParams add_student_to_school_class

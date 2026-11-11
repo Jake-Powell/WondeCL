@@ -27,6 +27,7 @@ RoxygenNote: 7.3.3
 Depends: 
     R (>= 3.5)
 Suggests: 
+    DT,
     knitr,
     OMELink,
     rmarkdown,

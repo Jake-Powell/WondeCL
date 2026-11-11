@@ -19,8 +19,7 @@ Queries the Wonde API to retrieve information about all schools linked to your W
 }
 \details{
 This function is a wrapper around \code{WondeCL::get_query()}, specifically for retrieving
-school data from the Wonde API. It automatically constructs the appropriate endpoint
-and handles missing or invalid API tokens.
+school data from the Wonde API from the endpoint "https://api.wonde.com/v1.0/schools/".
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
