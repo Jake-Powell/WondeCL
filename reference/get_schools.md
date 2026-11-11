@@ -26,9 +26,8 @@ The structure will depend on the response from
 
 This function is a wrapper around
 [`WondeCL::get_query()`](https://Jake-Powell.github.io/WondeCL/reference/get_query.md),
-specifically for retrieving school data from the Wonde API. It
-automatically constructs the appropriate endpoint and handles missing or
-invalid API tokens.
+specifically for retrieving school data from the Wonde API from the
+endpoint "https://api.wonde.com/v1.0/schools/".
 
 ## See also
 

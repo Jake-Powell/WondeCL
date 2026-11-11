@@ -57,6 +57,8 @@
   : Filter Primary Wonde Data by Year
 - [`filter_secondary_WondeData()`](https://Jake-Powell.github.io/WondeCL/reference/filter_secondary_WondeData.md)
   : Filter Secondary Wonde Data by Year and Subject
+- [`get_allowed_api_dates()`](https://Jake-Powell.github.io/WondeCL/reference/get_allowed_api_dates.md)
+  : Get Allowed Wonde API Dates
 - [`get_class_sizes()`](https://Jake-Powell.github.io/WondeCL/reference/get_class_sizes.md)
   : Calculate class sizes from a class list
 - [`get_column_names()`](https://Jake-Powell.github.io/WondeCL/reference/get_column_names.md)
@@ -88,10 +90,14 @@
   : Rename Columns to Configured Names
 - [`rename_to_internal_names()`](https://Jake-Powell.github.io/WondeCL/reference/rename_to_internal_names.md)
   : Rename Columns to Internal Names
+- [`reset_allowed_api_dates()`](https://Jake-Powell.github.io/WondeCL/reference/reset_allowed_api_dates.md)
+  : Reset Allowed Wonde API Dates
 - [`reset_column_names()`](https://Jake-Powell.github.io/WondeCL/reference/reset_column_names.md)
   : Reset Column Names
 - [`revert_ignored_withdrawals()`](https://Jake-Powell.github.io/WondeCL/reference/revert_ignored_withdrawals.md)
   : Revert ignored withdrawals
+- [`set_allowed_api_dates()`](https://Jake-Powell.github.io/WondeCL/reference/set_allowed_api_dates.md)
+  : Set Allowed Wonde API Dates
 - [`set_column_names()`](https://Jake-Powell.github.io/WondeCL/reference/set_column_names.md)
   : Set Column Names
 - [`set_token()`](https://Jake-Powell.github.io/WondeCL/reference/set_token.md)

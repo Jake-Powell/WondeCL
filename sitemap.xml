@@ -34,6 +34,7 @@
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/filter_WondeData.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/filter_primary_WondeData.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/filter_secondary_WondeData.html</loc></url>
+<url><loc>https://Jake-Powell.github.io/WondeCL/reference/get_allowed_api_dates.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/get_class_sizes.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/get_column_names.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/get_primary_school_student_data.html</loc></url>
@@ -50,8 +51,10 @@
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/remove_student_from_class.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/rename_to_configured_names.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/rename_to_internal_names.html</loc></url>
+<url><loc>https://Jake-Powell.github.io/WondeCL/reference/reset_allowed_api_dates.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/reset_column_names.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/revert_ignored_withdrawals.html</loc></url>
+<url><loc>https://Jake-Powell.github.io/WondeCL/reference/set_allowed_api_dates.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/set_column_names.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/set_token.html</loc></url>
 <url><loc>https://Jake-Powell.github.io/WondeCL/reference/summarise_class_sizes.html</loc></url>
