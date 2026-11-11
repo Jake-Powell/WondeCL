@@ -25,6 +25,8 @@ set_allowed_api_dates(
   c("01/09-30/09", "24/11-24/12")
 )
 
+options(
+
 reset_allowed_api_dates()
 
 }

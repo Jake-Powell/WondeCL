@@ -1,183 +1,196 @@
+# Place in tests/testthat/test-manual-class-list-edits.R
 # Run with devtools::test(filter = "manual-class-list-edits")
 
-# WondeCL::class_list_example uses an older, 16-column example schema.
-# Construct a test fixture with the current configured class-list headers.
-# The positions below refer to the 16 columns of that example, in order:
-# 1 school code, 2 school name, 3 URN, 6 class ID, 7 class name,
-# 8 teacher ID, 9/10 teacher names, 12 student ID, 13 UPN,
-# 14/15 student names, 16 DOB.
+# The package dataset already uses the default configured names.
+# Avoid relying on column positions or randomly assigned surnames.
 .make_manual_edit_fixture <- function() {
-  raw <- WondeCL::class_list_example
-  stopifnot(ncol(raw) == 16L)
-  
-  internal <- data.frame(
-    est_id = as.character(raw[[1]]),
-    est_wonde_id = paste0("W-", as.character(raw[[1]])),
-    est_wonde_name = as.character(raw[[2]]),
-    est_wonde_urn = as.character(raw[[3]]),
-    urn = as.character(raw[[3]]),
-    c_wonde_id = as.character(raw[[6]]),
-    c_wonde_name = as.character(raw[[7]]),
-    t_wonde_ID = as.character(raw[[8]]),
-    tfn = as.character(raw[[9]]),
-    tln = as.character(raw[[10]]),
-    t_main = TRUE,
-    t_full = paste(raw[[9]], raw[[10]]),
-    s_wonde_id = as.character(raw[[12]]),
-    upn = as.character(raw[[13]]),
-    sfn = as.character(raw[[14]]),
-    sln = as.character(raw[[15]]),
-    dob = as.character(raw[[16]]),
-    stringsAsFactors = FALSE
+  df <- WondeCL::class_list_example
+  required <- c(
+    "EST_ID", "EST_NAME", "URN", "EST_WONDE_ID", "EST_WONDE_NAME",
+    "CLASS_NAME", "CLASS_WONDE_NAME", "CLASS_WONDE_ID",
+    "STUDENT_WONDE_ID", "PUPIL_FIRST_NAME", "PUPIL_LAST_NAME",
+    "TEACHER_WONDE_ID", "TEACHER_FIRST_NAME",
+    "TEACHER_LAST_NAME", "TEACHER_FULL_NAME", "DOB", "UPN"
   )
-  WondeCL:::rename_to_configured_names(internal)
+  testthat::expect_true(all(required %in% names(df)))
+  df
 }
 
-# Fetch a configured column name via its stable internal key.
 .cn <- function(key) unname(WondeCL::get_column_names(key))
 
-# Avoid tests relying on row numbers: return matching rows, including 0 rows.
 .school_class_rows <- function(df, school, class_name) {
-  df[as.character(df[[.cn("est_id")]]) == school &
-       df[[.cn("c_wonde_name")]] == class_name, , drop = FALSE]
+  df[
+    as.character(df[[.cn("est_id")]]) == school &
+      as.character(df[[.cn("class_name")]]) == class_name,
+    , drop = FALSE
+  ]
 }
 
-test_that("fixture represents two schools and the expected classes", {
+# Select a real student from the fixture, without relying on seed-dependent
+# pairings of randomly sampled surnames.
+.example_student <- function(df, school = "A", class_name = "French") {
+  rows <- .school_class_rows(df, school, class_name)
+  stopifnot(nrow(rows) >= 1L)
+  rows[1, , drop = FALSE]
+}
+
+testthat::test_that("fixture uses the updated configured example dataset", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
-  expect_equal(nrow(df), 60L)
-  expect_setequal(unique(df[[.cn("est_id")]]), c("A", "B"))
-  expect_equal(nrow(.school_class_rows(df, "A", "Fernleaf")), 15L)
-  expect_equal(nrow(.school_class_rows(df, "A", "French")), 15L)
-  expect_equal(nrow(.school_class_rows(df, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(df), 60L)
+  testthat::expect_setequal(unique(df$EST_ID), c("A", "B"))
+  testthat::expect_equal(nrow(.school_class_rows(df, "A", "Fernleaf")), 15L)
+  testthat::expect_equal(nrow(.school_class_rows(df, "A", "French")), 15L)
+  testthat::expect_equal(nrow(.school_class_rows(df, "B", "Foxglove")), 30L)
+  testthat::expect_equal(
+    unique(.school_class_rows(df, "A", "Fernleaf")$CLASS_WONDE_ID),
+    "WONDE-C001"
+  )
+  testthat::expect_false(anyDuplicated(df$STUDENT_WONDE_ID) > 0L)
 })
 
-test_that("add_student_to_school_class accepts URN and adds one student", {
+testthat::test_that("add_student_to_school_class accepts URN and adds one student", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
   out <- WondeCL::add_student_to_school_class(
     df, first_name = "Jimmy", last_name = "Powell",
     class_name = "French", dob = "1910-05-07",
     URN = 123456, verbose = FALSE
   )
-  expect_equal(nrow(out), nrow(df) + 1L)
-  jimmy <- out[out[[.cn("sfn")]] == "Jimmy" &
-                 out[[.cn("sln")]] == "Powell", , drop = FALSE]
-  expect_equal(nrow(jimmy), 1L)
-  expect_equal(jimmy[[.cn("c_wonde_name")]], "French")
-  expect_equal(jimmy[[.cn("est_id")]], "A")
-  expect_equal(jimmy[[.cn("dob")]], "1910-05-07")
-  expect_true(is.na(jimmy[[.cn("s_wonde_id")]]))
-  expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(out), 61L)
+  jimmy <- out[out$PUPIL_FIRST_NAME == "Jimmy" &
+                 out$PUPIL_LAST_NAME == "Powell", , drop = FALSE]
+  testthat::expect_equal(nrow(jimmy), 1L)
+  testthat::expect_equal(jimmy$CLASS_NAME, "French")
+  testthat::expect_equal(jimmy$EST_ID, "A")
+  testthat::expect_equal(jimmy$DOB, "1910-05-07")
+  testthat::expect_true(is.na(jimmy$STUDENT_WONDE_ID))
+  testthat::expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
 })
 
-test_that("update_student_class uses teacher and class from same school", {
+testthat::test_that("update_student_class takes class and teacher from same school", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
+  pupil <- .example_student(df, "A", "French")
   out <- WondeCL::update_student_class(
-    df, first_name = "Kandra", last_name = "Marionberry",
+    df,
+    first_name = pupil$PUPIL_FIRST_NAME,
+    last_name = pupil$PUPIL_LAST_NAME,
     class_name = "French", new_class_name = "Fernleaf",
     EST_ID = "A"
   )
-  pupil <- out[out[[.cn("sfn")]] == "Kandra" &
-                 out[[.cn("sln")]] == "Marionberry", , drop = FALSE]
-  expect_equal(nrow(pupil), 1L)
-  expect_equal(pupil[[.cn("c_wonde_name")]], "Fernleaf")
-  expect_equal(pupil[[.cn("c_wonde_id")]], "449073-1")
-  expect_equal(pupil[[.cn("t_full")]], "Miss Katherine")
-  expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  changed <- out[out$STUDENT_WONDE_ID == pupil$STUDENT_WONDE_ID, , drop = FALSE]
+  testthat::expect_equal(nrow(changed), 1L)
+  testthat::expect_equal(changed$CLASS_NAME, "Fernleaf")
+  testthat::expect_equal(changed$CLASS_WONDE_ID, "WONDE-C001")
+  testthat::expect_equal(changed$TEACHER_FULL_NAME, "Miss Katherine")
+  testthat::expect_equal(nrow(.school_class_rows(out, "A", "French")), 14L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
 })
 
-test_that("update_class_name only edits selected school and class", {
+testthat::test_that("update_class_name edits only selected school and class", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
   out <- WondeCL::update_class_name(
     df, class_name = "French", new_name = "Maths 7A",
-    est_wonde_id = "W-A"
+    est_wonde_id = "WONDE-E001"
   )
-  expect_equal(nrow(.school_class_rows(out, "A", "Maths 7A")), 15L)
-  expect_equal(nrow(.school_class_rows(out, "A", "French")), 0L)
-  expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "A", "Maths 7A")), 15L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "A", "French")), 0L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(out), nrow(df))
 })
 
-test_that("update_school_name supports multiple schools in one call", {
+testthat::test_that("update_school_name supports multiple schools in one call", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
   out <- WondeCL::update_school_name(
     df, new_name = c("School Alpha", "School Beta"),
     EST_ID = c("A", "B")
   )
-  expect_setequal(unique(out[[.cn("est_wonde_name")]]),
-                  c("School Alpha", "School Beta"))
-  expect_true(all(out[[.cn("est_wonde_name")]][out[[.cn("est_id")]] == "A"] == "School Alpha"))
-  expect_true(all(out[[.cn("est_wonde_name")]][out[[.cn("est_id")]] == "B"] == "School Beta"))
+  testthat::expect_setequal(
+    unique(out$EST_WONDE_NAME), c("School Alpha", "School Beta")
+  )
+  testthat::expect_true(all(out$EST_WONDE_NAME[out$EST_ID == "A"] == "School Alpha"))
+  testthat::expect_true(all(out$EST_WONDE_NAME[out$EST_ID == "B"] == "School Beta"))
 })
 
-test_that("remove_class respects selected school and accepts multiple classes", {
+testthat::test_that("remove_class respects the school and accepts multiple classes", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
   out <- WondeCL::remove_class(df, class_name = "French", EST_ID = "A")
-  expect_equal(nrow(out), 45L)
-  expect_equal(nrow(.school_class_rows(out, "A", "Fernleaf")), 15L)
-  expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(out), 45L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "A", "Fernleaf")), 15L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  
   all_a_removed <- WondeCL::remove_class(
     df, class_name = c("Fernleaf", "French"), EST_ID = "A"
   )
-  expect_equal(nrow(all_a_removed), 30L)
-  expect_true(all(all_a_removed[[.cn("est_id")]] == "B"))
+  testthat::expect_equal(nrow(all_a_removed), 30L)
+  testthat::expect_true(all(all_a_removed$EST_ID == "B"))
 })
 
-test_that("remove_student_from_class removes only requested student", {
+testthat::test_that("remove_student_from_class removes the selected student only", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
-  target <- df[[.cn("s_wonde_id")]][df[[.cn("sfn")]] == "Kandra"]
-  expect_length(target, 1L)
+  pupil <- .example_student(df, "A", "French")
   out <- WondeCL::remove_student_from_class(
-    df, student_id = target, class_name = "French", EST_ID = "A"
+    df, student_id = pupil$STUDENT_WONDE_ID,
+    class_name = "French", EST_ID = "A"
   )
-  expect_equal(nrow(out), 59L)
-  expect_false(target %in% out[[.cn("s_wonde_id")]])
-  expect_equal(nrow(.school_class_rows(out, "A", "French")), 14L)
-  expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
+  testthat::expect_equal(nrow(out), 59L)
+  testthat::expect_false(pupil$STUDENT_WONDE_ID %in% out$STUDENT_WONDE_ID)
+  testthat::expect_equal(nrow(.school_class_rows(out, "A", "French")), 14L)
+  testthat::expect_equal(nrow(.school_class_rows(out, "B", "Foxglove")), 30L)
 })
 
-test_that("configured column names can change without changing function calls", {
-  # Restore configuration after this test to avoid leaking state to other tests.
+testthat::test_that("configured names can change without changing edit function calls", {
+  WondeCL::reset_column_names()
+  default_df <- .make_manual_edit_fixture()
+  internal <- WondeCL:::rename_to_internal_names(default_df)
   on.exit(WondeCL::reset_column_names(), add = TRUE)
+  
   WondeCL::set_column_names(
     est_id = "SCHOOL_CODE_CUSTOM",
-    c_wonde_name = "CLASS_NAME_CUSTOM",
+    class_name = "CLASS_NAME_CUSTOM",
     sfn = "FORENAME_CUSTOM"
   )
-  df <- .make_manual_edit_fixture()
-  expect_true(all(c("SCHOOL_CODE_CUSTOM", "CLASS_NAME_CUSTOM", "FORENAME_CUSTOM") %in% names(df)))
+  df <- WondeCL:::rename_to_configured_names(internal)
+  testthat::expect_true(all(c(
+    "SCHOOL_CODE_CUSTOM", "CLASS_NAME_CUSTOM", "FORENAME_CUSTOM"
+  ) %in% names(df)))
   
   out <- WondeCL::update_class_name(
-    df, class_name = "French", new_name = "New French",
-    est_id = "A"  # stable internal identifier
+    df, class_name = "French", new_name = "New French", est_id = "A"
   )
-  expect_equal(sum(out$CLASS_NAME_CUSTOM == "New French"), 15L)
-  expect_true("SCHOOL_CODE_CUSTOM" %in% names(out))
+  testthat::expect_equal(sum(out$CLASS_NAME_CUSTOM == "New French"), 15L)
+  testthat::expect_true("SCHOOL_CODE_CUSTOM" %in% names(out))
   
   out2 <- WondeCL::remove_class(
-    df, class_name = "French", SCHOOL_CODE_CUSTOM = "A" # configured external name
+    df, class_name = "French", SCHOOL_CODE_CUSTOM = "A"
   )
-  expect_equal(nrow(out2), 45L)
+  testthat::expect_equal(nrow(out2), 45L)
 })
 
-test_that("invalid selectors and nonexistent classes are handled", {
+testthat::test_that("invalid selectors and absent classes are handled", {
+  WondeCL::reset_column_names()
   df <- .make_manual_edit_fixture()
-  expect_error(
+  testthat::expect_error(
     WondeCL::remove_class(df, class_name = "French", NOT_A_COLUMN = "A"),
     "Unknown school identifier"
   )
-  expect_error(
-    WondeCL::remove_class(df, class_name = "French", STUDENT_WONDE_ID = "1"),
+  testthat::expect_error(
+    WondeCL::remove_class(df, class_name = "French", STUDENT_WONDE_ID = "WONDE-S001"),
     "not a supported school identifier"
   )
-  expect_error(
+  testthat::expect_error(
     WondeCL::remove_class(df, class_name = "French"),
     "exactly one named school identifier"
   )
-  expect_equal(
-    WondeCL::remove_class(df, class_name = "Nonexistent", EST_ID = "A"),
-    df
+  testthat::expect_equal(
+    WondeCL::remove_class(df, class_name = "Nonexistent", EST_ID = "A"), df
   )
 })
-
 
 # ============================================================
 # Tests: withdraw_student_from_school_class()
@@ -509,3 +522,98 @@ testthat::test_that("Missing student-name columns produce an error", {
   )
   
 })
+
+
+
+testthat::test_that(
+  "update_class_name preserves original Wonde class names", {
+    
+    WondeCL::reset_column_names()
+    
+    df <- WondeCL::class_list_example
+    
+    out <- WondeCL::update_class_name(
+      df,
+      class_name = "French",
+      new_name = "Maths 7A",
+      EST_ID = "A"
+    )
+    
+    selected <- out[
+      out$EST_ID == "A" &
+        out$CLASS_NAME == "Maths 7A",
+      ,
+      drop = FALSE
+    ]
+    
+    testthat::expect_equal(nrow(selected), 15L)
+    
+    testthat::expect_true(
+      all(selected$CLASS_WONDE_NAME == "French")
+    )
+    
+    testthat::expect_equal(
+      nrow(out),
+      nrow(df)
+    )
+  }
+)
+
+
+testthat::test_that(
+  "update_student_class copies destination class and teacher fields", {
+    
+    WondeCL::reset_column_names()
+    
+    df <- WondeCL::class_list_example
+    
+    pupil <- df[
+      which(
+        df$EST_ID == "A" &
+          df$CLASS_NAME == "French"
+      )[1L],
+      ,
+      drop = FALSE
+    ]
+    
+    out <- WondeCL::update_student_class(
+      df,
+      first_name = pupil$PUPIL_FIRST_NAME,
+      last_name = pupil$PUPIL_LAST_NAME,
+      class_name = "French",
+      new_class_name = "Fernleaf",
+      EST_ID = "A"
+    )
+    
+    changed <- out[
+      out$STUDENT_WONDE_ID == pupil$STUDENT_WONDE_ID,
+      ,
+      drop = FALSE
+    ]
+    
+    testthat::expect_equal(
+      changed$CLASS_NAME,
+      "Fernleaf"
+    )
+    
+    testthat::expect_equal(
+      changed$CLASS_WONDE_NAME,
+      "Fernleaf"
+    )
+    
+    testthat::expect_equal(
+      changed$CLASS_WONDE_ID,
+      "WONDE-C001"
+    )
+    
+    testthat::expect_equal(
+      changed$TEACHER_FULL_NAME,
+      "Miss Katherine"
+    )
+    
+    testthat::expect_equal(
+      changed$TEACHER_WONDE_ID,
+      "WONDE-T001"
+    )
+  }
+)

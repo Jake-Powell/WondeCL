@@ -228,6 +228,13 @@ get_allowed_api_dates <- function(source = FALSE) {
 #' set_allowed_api_dates(
 #'   c("01/09-30/09", "24/11-24/12")
 #' )
+#' 
+#' options(
+# WondeCL.allowed_api_dates = c(
+#   "01/09-30/09",
+#   "24/11-24/12"
+# )
+# )
 #'
 #' reset_allowed_api_dates()
 #'
